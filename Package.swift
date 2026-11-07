@@ -9,6 +9,11 @@ let package = Package(
             name: "Toma",
             path: "Sources/Toma",
             swiftSettings: [.defaultIsolation(MainActor.self)]
+        ),
+        .testTarget(
+            name: "TomaTests",
+            dependencies: ["Toma"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
         )
     ]
 )

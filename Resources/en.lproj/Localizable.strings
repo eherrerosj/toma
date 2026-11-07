@@ -49,3 +49,13 @@
 "Toma %@ is available." = "Toma %@ is available.";
 "Update" = "Update";
 "Later" = "Later";
+"Show Recoverable Recordings" = "Show Recoverable Recordings";
+"Save Original…" = "Save Original…";
+"The original is safe in Recoverable Recordings. Save a copy or open that folder to recover it later." = "The original is safe in Recoverable Recordings. Save a copy or open that folder to recover it later.";
+"Check for Updates Automatically" = "Check for Updates Automatically";
+"Cancel Export" = "Cancel Export";
+"Recording stopped because free disk space is low." = "Recording stopped because free disk space is low.";
+"Recording stopped at the 4 GB safety limit." = "Recording stopped at the 4 GB safety limit.";
+"Recording stopped at the one-hour safety limit." = "Recording stopped at the one-hour safety limit.";
+"Recording stopped because its storage became unavailable." = "Recording stopped because its storage became unavailable.";
+"Up to 1920 px, 20 fps" = "Up to 1920 px, 20 fps";

@@ -49,3 +49,13 @@
 "Toma %@ is available." = "Toma %@ está disponible.";
 "Update" = "Actualizar";
 "Later" = "Más tarde";
+"Show Recoverable Recordings" = "Mostrar grabaciones recuperables";
+"Save Original…" = "Guardar original…";
+"The original is safe in Recoverable Recordings. Save a copy or open that folder to recover it later." = "El original está guardado en Grabaciones recuperables. Guarda una copia o abre esa carpeta para recuperarlo más tarde.";
+"Check for Updates Automatically" = "Buscar actualizaciones automáticamente";
+"Cancel Export" = "Cancelar exportación";
+"Recording stopped because free disk space is low." = "La grabación se detuvo por falta de espacio libre.";
+"Recording stopped at the 4 GB safety limit." = "La grabación se detuvo al alcanzar el límite de seguridad de 4 GB.";
+"Recording stopped at the one-hour safety limit." = "La grabación se detuvo al alcanzar el límite de seguridad de una hora.";
+"Recording stopped because its storage became unavailable." = "La grabación se detuvo porque el almacenamiento dejó de estar disponible.";
+"Up to 1920 px, 20 fps" = "Hasta 1920 px, 20 fps";

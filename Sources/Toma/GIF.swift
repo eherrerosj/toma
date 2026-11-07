@@ -130,6 +130,8 @@ nonisolated enum GIF {
 
         func append(_ encoded: Data) throws { try handle.write(contentsOf: encoded) }
 
+        func abort() { try? handle.close() }
+
         func finish() throws {
             try handle.write(contentsOf: Data([0x3B]))
             try handle.close()
@@ -138,6 +140,19 @@ nonisolated enum GIF {
 
     /// One frame as GIF bytes (control extension + image), shown for `centiseconds`.
     static func encode(_ delta: Delta, centiseconds: Int) -> Data {
+        precondition(centiseconds > 0)
+        var remaining = centiseconds
+        var out = Data()
+        while remaining > 0 {
+            // Keep the remainder at least 2 cs because many players clamp shorter delays.
+            let chunk = remaining > 65_535 && remaining % 65_535 == 1 ? 65_534 : min(remaining, 65_535)
+            out.append(encodeFrame(delta, centiseconds: chunk))
+            remaining -= chunk
+        }
+        return out
+    }
+
+    private static func encodeFrame(_ delta: Delta, centiseconds: Int) -> Data {
         let w = delta.frame.width
         let (bx, by, bw, bh) = (delta.x, delta.y, delta.width, delta.height)
 

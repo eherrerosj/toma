@@ -24,10 +24,13 @@ final class Toma {
         didSet { statusItem.render(phase) }
     }
     private let statusItem: StatusItem
+    private let updater: Updater
     /// The hotkey was pressed while the card was up: save it and go straight to a new selection.
     private var againAfterSaving = false
+    private var sessionTask: Task<Void, Never>?
 
     init(updater: Updater) {
+        self.updater = updater
         statusItem = StatusItem(updater: updater)
         statusItem.onPress = { [unowned self] in toggle() }
         statusItem.render(phase)
@@ -38,8 +41,9 @@ final class Toma {
     func toggle() {
         switch phase {
         case .idle:
+            if case .installing = updater.state { return }
             phase = .busy
-            Task {
+            sessionTask = Task {
                 await session()
                 phase = .idle
                 if againAfterSaving {
@@ -50,9 +54,10 @@ final class Toma {
         case .recording(let recording, _):
             recording.stop()
         case .reviewing(let card):
-            againAfterSaving = true
-            card.commit()
-        case .busy, .saving:
+            if card.commit() { againAfterSaving = true }
+        case .saving:
+            sessionTask?.cancel()
+        case .busy:
             break
         }
     }
@@ -72,6 +77,11 @@ final class Toma {
         do { clip = try await recording.clip } catch { frame.close(); return present(error) }
         frame.close()
 
+        if let reason = recording.limitReason {
+            let alert = NSAlert()
+            alert.messageText = tr(reason)
+            alert.runModal()
+        }
         let suggested = Library.preferredFormat
         Library.prepare(clip, as: suggested)                     // likely choice encodes while the card is up
         let card = ResultCard(clip, suggesting: suggested)
@@ -79,14 +89,14 @@ final class Toma {
         let choice = await card.choice()
 
         phase = .saving(0)
-        let progress: @Sendable (Double) -> Void = { value in
+        let progress: @Sendable (Double) -> Void = { [weak self] value in
             Task { @MainActor [weak self] in
                 if case .saving = self?.phase { self?.phase = .saving(value) }
             }
         }
         do {
             switch choice {
-            case .discard: Library.discard(clip)
+            case .discard: await Library.discard(clip)
             case .delivered: break
             case .save(let format): try await Library.save(clip, as: format, progress: progress)
             case .copy(let format):
@@ -94,9 +104,29 @@ final class Toma {
                 statusItem.flash()
             }
         } catch {
-            // Never lose a recording: if an export fails, the master still is a valid MP4.
-            if (try? await Library.save(clip, as: .mp4)) != nil { return }
-            present(error)
+            recover(clip, after: error)
+        }
+    }
+
+    private func recover(_ clip: Clip, after error: any Error) {
+        let alert = NSAlert()
+        alert.messageText = tr("Couldn't save the recording.")
+        alert.informativeText = tr("The original is safe in Recoverable Recordings. Save a copy or open that folder to recover it later.")
+        alert.addButton(withTitle: tr("Save Original…"))
+        alert.addButton(withTitle: tr("Show Recoverable Recordings"))
+        alert.addButton(withTitle: tr("Later"))
+        NSApp.activate()
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.mpeg4Movie]
+            panel.nameFieldStringValue = "\(Library.fileName()).mp4"
+            if panel.runModal() == .OK, let url = panel.url {
+                do { try Library.rescue(clip, to: url) }
+                catch { present(error) }
+            }
+        case .alertSecondButtonReturn: Library.showRecovery()
+        default: break
         }
     }
 

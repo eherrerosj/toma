@@ -49,7 +49,7 @@ final class Welcome: NSObject, NSWindowDelegate {
         icon.widthAnchor.constraint(equalToConstant: 96).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 96).isActive = true
 
-        let title = label("Toma", font: .systemFont(ofSize: 26, weight: .bold), color: .labelColor)
+        let title = label(AppIdentity.displayName, font: .systemFont(ofSize: 26, weight: .bold), color: .labelColor)
         let subtitle = label(tr("Lives in the menu bar.\nRecord a region of your screen with a shortcut."),
                              font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
 

@@ -7,3 +7,6 @@ Toma.app/
 .cloudflare/
 Toma.dmg
 Toma-rw.dmg
+
+Toma Personal.app/
+__pycache__/

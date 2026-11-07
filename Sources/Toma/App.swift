@@ -23,9 +23,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let updater = Updater()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        Library.removeLeftovers()                    // crash-halfway cleanup, day-old clipboard files
+        Library.startHousekeeping()
         let toma = Toma(updater: updater)
         self.toma = toma
+        updater.canInstall = { [weak toma] in
+            guard let toma, case .idle = toma.phase else { return false }
+            return true
+        }
         hotkey = Hotkey(.optionShiftCommand4) { toma.toggle() }
 
         let welcome = Welcome()
@@ -33,6 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.welcome = welcome
         welcome.showIfFirstLaunch()
         updater.startChecking()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        Library.removeOwnedWorkspace()
     }
 
     /// Opening Toma again from Applications, Launchpad or Spotlight brings the welcome window back.

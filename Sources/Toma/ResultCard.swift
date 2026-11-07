@@ -25,6 +25,9 @@ final class ResultCard {
 
     private let clip: Clip
     private let suggested: Format
+    private let write: (Clip, Format, URL) async throws -> Void
+    private var delivering = false
+    private(set) var selection: Choice?
     private let decided = OneShot<Choice>()
     private var panel: NSPanel?
     private var timeout: Task<Void, Never>?
@@ -34,9 +37,13 @@ final class ResultCard {
 
     private static let lifetime: Duration = .seconds(6)
 
-    init(_ clip: Clip, suggesting suggested: Format) {
+    init(_ clip: Clip, suggesting suggested: Format,
+         write: @escaping (Clip, Format, URL) async throws -> Void = { clip, format, url in
+             try await Library.save(clip, as: format, to: url)
+         }) {
         self.clip = clip
         self.suggested = suggested
+        self.write = write
     }
 
     /// Shows the card and resolves exactly once; the window is gone before it returns.
@@ -48,16 +55,23 @@ final class ResultCard {
     }
 
     /// Saves in the suggested format now (the hotkey pressed while the card is up).
-    func commit() { resolve(.save(suggested)) }
+    @discardableResult
+    func commit() -> Bool {
+        guard !dragging, !delivering, selection == nil else { return false }
+        resolve(.save(suggested))
+        return true
+    }
 
     private func resolve(_ choice: Choice) {
+        guard !delivering, selection == nil else { return }
+        selection = choice
         timeout?.cancel()
         decided.resolve(choice)
     }
 
     private func restartTimeout() {
         timeout?.cancel()
-        guard !hovering, !dragging else { return }
+        guard !hovering, !dragging, !delivering, selection == nil else { return }
         timeout = Task { [weak self, suggested] in
             try? await Task.sleep(for: Self.lifetime)
             guard !Task.isCancelled else { return }
@@ -157,10 +171,18 @@ final class ResultCard {
     }
 
     /// Called by the file promise: write the clip at exactly `url`.
-    fileprivate func deliver(to url: URL) async throws {
+    func deliver(to url: URL) async throws {
+        guard !delivering, selection == nil else { throw CocoaError(.fileWriteUnknown) }
+        delivering = true
         timeout?.cancel()
-        try await Library.save(clip, as: suggested, to: url)
-        resolve(.delivered)
+        do {
+            try await write(clip, suggested, url)
+            delivering = false
+            resolve(.delivered)
+        } catch {
+            delivering = false
+            throw error
+        }
     }
 
     fileprivate var promisedName: String { "\(Library.fileName()).\(suggested.fileExtension)" }

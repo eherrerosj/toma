@@ -71,8 +71,14 @@ final class Recording {
         config.pixelFormat = kCVPixelFormatType_32BGRA
         config.queueDepth = 6
 
-        let master = Library.scratch.appending(path: "\(UUID().uuidString).mp4")
-        try? FileManager.default.createDirectory(at: Library.scratch, withIntermediateDirectories: true)
+        let master: URL
+        do { master = try Library.storage.newMasterURL() }
+        catch { throw .streamFailed(underlying: error.localizedDescription) }
+
+        do {
+            let available = try ResourceBudget.availableBytes(at: master.deletingLastPathComponent())
+            guard available >= ResourceBudget.minimumFreeBytes else { throw TomaError.streamFailed(underlying: "low disk space") }
+        } catch { throw .streamFailed(underlying: error.localizedDescription) }
 
         let sink = RecordingSink()
         let output = SCRecordingOutputConfiguration()
@@ -82,15 +88,27 @@ final class Recording {
 
         let stream = SCStream(filter: filter, configuration: config, delegate: sink)
         let recordingOutput = SCRecordingOutput(configuration: output, delegate: sink)
-        do {
-            try stream.addRecordingOutput(recordingOutput)
-            try await stream.startCapture()
-        } catch {
-            throw .streamFailed(underlying: error.localizedDescription)
+        do { try stream.addRecordingOutput(recordingOutput) }
+        catch { throw .streamFailed(underlying: error.localizedDescription) }
+        let captureStarted = OneShot<Outcome>()
+        let startup = Task {
+            do {
+                try await stream.startCapture()
+                if Task.isCancelled { try? await stream.stopCapture() }
+                captureStarted.resolve(.ok)
+            } catch { captureStarted.resolve(.failed(error.localizedDescription)) }
         }
-        if case .failed(let reason) = await sink.started.value {
-            try? await stream.stopCapture()
-            throw .streamFailed(underlying: reason)
+        do {
+            if case .failed(let reason) = try await captureStarted.wait(timeout: .seconds(10)) {
+                throw TomaError.streamFailed(underlying: reason)
+            }
+            if case .failed(let reason) = try await sink.started.wait(timeout: .seconds(10)) {
+                throw TomaError.streamFailed(underlying: reason)
+            }
+        } catch {
+            startup.cancel()
+            Task { try? await stream.stopCapture() }
+            throw .streamFailed(underlying: error.localizedDescription)
         }
         return Recording(stream: stream, output: recordingOutput, sink: sink, master: master, region: region)
     }
@@ -104,6 +122,7 @@ final class Recording {
     func stop() {
         guard !stopRequested else { return }
         stopRequested = true
+        watchdog?.cancel()
         let stream = self.stream, output = self.output, sink = self.sink
         Task {
             try? stream.removeRecordingOutput(output)
@@ -130,6 +149,7 @@ final class Recording {
             } else {
                 result = .failure(.streamFailed(underlying: "empty file"))
             }
+            watchdog?.cancel()
             finished = result
             return try result.get()
         }
@@ -140,6 +160,8 @@ final class Recording {
     private let sink: RecordingSink
     private let master: URL
     private let region: ScreenRegion
+    private var watchdog: Task<Void, Never>?
+    private(set) var limitReason: String?
     private var stopRequested = false
     private var finished: Result<Clip, TomaError>?
 
@@ -149,7 +171,30 @@ final class Recording {
         self.sink = sink
         self.master = master
         self.region = region
+        let began = ContinuousClock.now
+        watchdog = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                guard let self else { return }
+                let elapsed = Double((ContinuousClock.now - began).components.seconds)
+                do {
+                    let size = (try FileManager.default.attributesOfItem(atPath: master.path)[.size] as? NSNumber)?.int64Value ?? 0
+                    let available = try ResourceBudget.availableBytes(at: master.deletingLastPathComponent())
+                    if let reason = ResourceBudget.stopReason(elapsed: elapsed, bytes: size, available: available) {
+                        limitReason = reason
+                        stop()
+                        return
+                    }
+                } catch {
+                    limitReason = "Recording stopped because its storage became unavailable."
+                    stop()
+                    return
+                }
+            }
+        }
     }
+
+    isolated deinit { watchdog?.cancel() }
 }
 
 /// A finished recording, not yet saved anywhere the user can see.
@@ -195,38 +240,6 @@ private nonisolated final class RecordingSink: NSObject, SCRecordingOutputDelega
     func streamEnded() {
         DispatchQueue.global().asyncAfter(deadline: .now() + 2) { [finished] in
             finished.resolve(.ok)
-        }
-    }
-}
-
-/// A value that is set once and awaited any number of times. Resolving twice is a no-op.
-nonisolated final class OneShot<Value: Sendable>: Sendable {
-    private struct State {
-        var value: Value?
-        var waiters: [CheckedContinuation<Value, Never>] = []
-    }
-    private let state = Mutex(State())
-
-    func resolve(_ value: Value) {
-        let waiters = state.withLock { s -> [CheckedContinuation<Value, Never>] in
-            guard s.value == nil else { return [] }
-            s.value = value
-            defer { s.waiters = [] }
-            return s.waiters
-        }
-        for waiter in waiters { waiter.resume(returning: value) }
-    }
-
-    var value: Value {
-        get async {
-            await withCheckedContinuation { continuation in
-                let ready = state.withLock { s -> Value? in
-                    if let v = s.value { return v }
-                    s.waiters.append(continuation)
-                    return nil
-                }
-                if let ready { continuation.resume(returning: ready) }
-            }
         }
     }
 }

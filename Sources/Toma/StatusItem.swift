@@ -37,6 +37,7 @@ final class StatusItem: NSObject {
         guard let button = item.button else { return }
         button.appearsDisabled = false
         button.title = ""
+        button.toolTip = nil
         button.imagePosition = .imageOnly
 
         switch phase {
@@ -47,6 +48,7 @@ final class StatusItem: NSObject {
             button.appearsDisabled = true
         case .saving(let progress):
             button.image = ring(progress)
+            button.toolTip = tr("Cancel Export")
         case .recording(_, let since):
             button.image = symbol("stop.fill", tr("Stop Recording"), size: 9)
             button.imagePosition = .imageLeading
@@ -67,8 +69,8 @@ final class StatusItem: NSObject {
     @objc private func clicked() {
         switch phase {
         case .idle: showMenu()
-        case .recording: onPress()
-        case .busy, .reviewing, .saving: break
+        case .recording, .saving: onPress()
+        case .busy, .reviewing: break
         }
     }
 
@@ -90,6 +92,7 @@ final class StatusItem: NSObject {
 
         let record = item(tr("Record Region"), #selector(record), key: "4")
         record.keyEquivalentModifierMask = [.option, .shift, .command]
+        if case .installing = updater.state { record.isEnabled = false }
         menu.addItem(record)
         menu.addItem(.separator())
 
@@ -138,6 +141,10 @@ final class StatusItem: NSObject {
         let login = item(tr("Open at Login"), #selector(toggleLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
+        menu.addItem(item(tr("Show Recoverable Recordings"), #selector(showRecovery)))
+        let automatic = item(tr("Check for Updates Automatically"), #selector(toggleAutomaticUpdates))
+        automatic.state = Preferences.automaticUpdates ? .on : .off
+        menu.addItem(automatic)
         menu.addItem(item(tr("Check for Updates…"), #selector(checkForUpdates)))
         menu.addItem(NSMenuItem(title: tr("Quit Toma"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         menu.popUp(positioning: nil, at: CGPoint(x: 0, y: button.bounds.height + 5), in: button)
@@ -176,6 +183,10 @@ final class StatusItem: NSObject {
             render(phase)
         }
     }
+
+    @objc private func toggleAutomaticUpdates() { Preferences.automaticUpdates.toggle() }
+
+    @objc private func showRecovery() { Library.showRecovery() }
 
     @objc private func record() { onPress() }
 

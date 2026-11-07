@@ -16,7 +16,7 @@ enum Preferences {
 
         var detail: String {
             switch self {
-            case .sharp: tr("Full resolution, 20 fps")
+            case .sharp: tr("Up to 1920 px, 20 fps")
             case .light: tr("640 px, 15 fps · for chats")
             }
         }
@@ -39,6 +39,11 @@ enum Preferences {
             case .systemAndMicrophone: tr("Mac Sound and Microphone")
             }
         }
+    }
+
+    static var automaticUpdates: Bool {
+        get { UserDefaults.standard.bool(forKey: "automaticUpdates") }
+        set { UserDefaults.standard.set(newValue, forKey: "automaticUpdates") }
     }
 
     /// nil → the folder macOS uses for screenshots.
