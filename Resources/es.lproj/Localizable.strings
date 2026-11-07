@@ -59,3 +59,5 @@
 "Recording stopped at the one-hour safety limit." = "La grabación se detuvo al alcanzar el límite de seguridad de una hora.";
 "Recording stopped because its storage became unavailable." = "La grabación se detuvo porque el almacenamiento dejó de estar disponible.";
 "Up to 1920 px, 20 fps" = "Hasta 1920 px, 20 fps";
+"Select %@ format" = "Seleccionar formato %@";
+"Save" = "Guardar";

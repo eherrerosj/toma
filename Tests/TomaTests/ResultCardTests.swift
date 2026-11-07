@@ -16,10 +16,54 @@ import Testing
         let delivery = Task { try await card.deliver(to: URL(fileURLWithPath: "/unused-destination.mp4")) }
         _ = await entered.value
         #expect(!card.commit())
+        card.picked(.gif)
+        card.copy()
+        #expect(card.selectedFormat == .mp4)
         #expect(card.selection == nil)
         release.resolve(true)
         try await delivery.value
         #expect(card.selection == .delivered)
         #expect(!card.commit())
     }
+    private func clip() throws -> Clip {
+        let region = try #require(ScreenRegion(dragged: CGRect(x: 0, y: 0, width: 64, height: 64),
+                                              displayFrame: CGRect(x: 0, y: 0, width: 64, height: 64), scale: 1, displayID: 1))
+        return Clip(master: URL(fileURLWithPath: "/unused.mp4"), duration: 1, region: region)
+    }
+
+    @Test(arguments: Format.allCases)
+    func selectingFormatKeepsCardOpenAndCopyUsesThatFormat(format: Format) throws {
+        let card = ResultCard(try clip(), suggesting: .mp4)
+        card.picked(format)
+        #expect(card.selection == nil)
+        card.copy()
+        #expect(card.selection == .copy(format))
+    }
+
+    @Test func selectedFormatCanStillBeSavedExplicitly() throws {
+        let card = ResultCard(try clip(), suggesting: .mp4)
+        card.picked(.gif)
+        #expect(card.commit())
+        #expect(card.selection == .save(.gif))
+    }
+
+    @Test func draggingUsesTheSelectedFormat() async throws {
+        var written: Format?
+        let card = ResultCard(try clip(), suggesting: .mp4, write: { _, format, _ in written = format })
+        card.picked(.hevc)
+        try await card.deliver(to: URL(fileURLWithPath: "/unused.mov"))
+        #expect(written == .hevc)
+        #expect(card.selection == .delivered)
+    }
+
+    @Test func choosingAFormatHoldsTheCardPastItsAutoSaveDelay() async throws {
+        let card = ResultCard(try clip(), suggesting: .mp4, autoSaveAfter: .milliseconds(10))
+        card.picked(.gif)
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(card.selection == nil)
+        #expect(card.selectedFormat == .gif)
+        card.copy()
+        #expect(card.selection == .copy(.gif))
+    }
+
 }

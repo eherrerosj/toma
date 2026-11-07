@@ -54,10 +54,11 @@ Checks report a failure until that repository has a suitable personal release.
 
 When it ends, a thumbnail appears at the bottom right, like screenshots do:
 
-- **MP4 · HEVC · GIF**: press one to save in that format.
-- **Copy**: puts the file on the clipboard, ready to paste into Slack, Mail or WhatsApp.
-- **Drag**: drop the thumbnail into any app or folder.
-- **Do nothing**: after 6 s it saves in the last format you used.
+- **MP4 · HEVC · GIF**: select the format. The thumbnail stays open so you can choose an action.
+- **Save** (the download icon): saves the selected format to your chosen folder.
+- **Copy**: puts the selected format on the clipboard, ready to paste into Slack, Mail or WhatsApp.
+- **Drag**: drop the thumbnail into any app or folder in the selected format.
+- **Do nothing**: an untouched thumbnail auto-saves after 6 s. Selecting a format pauses that automatic save.
 - **×**: discards the recording.
 
 If you press the shortcut while the thumbnail is on screen, Toma saves the recording and starts another.

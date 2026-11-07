@@ -1,19 +1,7 @@
 import AppKit
 import AVFoundation
 
-/// After a recording: a floating thumbnail in the bottom-right corner of the screen where the
-/// recording happened — the same place as the ⇧⌘4 thumbnail — playing the clip muted on loop,
-/// with the formats under it: "MP4 · HEVC · GIF". The suggested one is emphasized.
-///
-/// - Click a word → save in that format.
-/// - The copy glyph → the suggested format goes to the clipboard, ready to paste.
-/// - Do nothing for 6 s, or swipe the card right → save in the suggested format.
-///   (Like screenshots: ignoring it is the fast path, and it never loses a recording.)
-/// - Drag the thumbnail into Finder, Mail, Slack… → the file is delivered there, in the
-///   suggested format, and nowhere else.
-/// - The "×" on hover → discard.
-///
-/// It is the only place the user ever chooses a format, and they choose after seeing the clip.
+/// Untouched cards auto-save. Choosing a format keeps the card open for an explicit action.
 final class ResultCard {
     enum Choice: Sendable, Equatable {
         case save(Format)
@@ -24,7 +12,8 @@ final class ResultCard {
     }
 
     private let clip: Clip
-    private let suggested: Format
+    private(set) var selectedFormat: Format
+    private var awaitingAction = false
     private let write: (Clip, Format, URL) async throws -> Void
     private var delivering = false
     private(set) var selection: Choice?
@@ -35,15 +24,16 @@ final class ResultCard {
     private var dragging = false
     private var swipe: CGFloat = 0
 
-    private static let lifetime: Duration = .seconds(6)
+    private let autoSaveAfter: Duration
 
-    init(_ clip: Clip, suggesting suggested: Format,
+    init(_ clip: Clip, suggesting suggested: Format, autoSaveAfter: Duration = .seconds(6),
          write: @escaping (Clip, Format, URL) async throws -> Void = { clip, format, url in
              try await Library.save(clip, as: format, to: url)
          }) {
         self.clip = clip
-        self.suggested = suggested
+        self.selectedFormat = suggested
         self.write = write
+        self.autoSaveAfter = autoSaveAfter
     }
 
     /// Shows the card and resolves exactly once; the window is gone before it returns.
@@ -54,11 +44,11 @@ final class ResultCard {
         return choice
     }
 
-    /// Saves in the suggested format now (the hotkey pressed while the card is up).
+    /// The Save button, swipe and recording shortcut share the same selected-format action.
     @discardableResult
     func commit() -> Bool {
         guard !dragging, !delivering, selection == nil else { return false }
-        resolve(.save(suggested))
+        resolve(.save(selectedFormat))
         return true
     }
 
@@ -71,11 +61,12 @@ final class ResultCard {
 
     private func restartTimeout() {
         timeout?.cancel()
-        guard !hovering, !dragging, !delivering, selection == nil else { return }
-        timeout = Task { [weak self, suggested] in
-            try? await Task.sleep(for: Self.lifetime)
+        guard !hovering, !dragging, !delivering, !awaitingAction, selection == nil else { return }
+        let delay = autoSaveAfter
+        timeout = Task { [weak self] in
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
-            self?.resolve(.save(suggested))
+            self?.commit()
         }
     }
 
@@ -106,7 +97,7 @@ final class ResultCard {
         let card = CardView(frame: CGRect(origin: .zero, size: size), owner: self)
         card.build(thumb: CGRect(x: pad, y: bar, width: thumb.width, height: thumb.height),
                    bar: CGRect(x: 0, y: 0, width: size.width, height: bar),
-                   clip: clip, suggested: suggested)
+                   clip: clip, suggested: selectedFormat)
         panel.contentView = card
         self.panel = panel
 
@@ -151,8 +142,15 @@ final class ResultCard {
         restartTimeout()
     }
 
-    fileprivate func picked(_ format: Format) { resolve(.save(format)) }
-    fileprivate func copy() { resolve(.copy(suggested)) }
+    func picked(_ format: Format) {
+        guard !delivering, !dragging, selection == nil else { return }
+        selectedFormat = format
+        awaitingAction = true
+        restartTimeout()
+        (panel?.contentView as? CardView)?.select(format)
+    }
+
+    func copy() { resolve(.copy(selectedFormat)) }
     fileprivate func discard() { resolve(.discard) }
 
     fileprivate func scrolled(_ deltaX: CGFloat) {
@@ -176,7 +174,7 @@ final class ResultCard {
         delivering = true
         timeout?.cancel()
         do {
-            try await write(clip, suggested, url)
+            try await write(clip, selectedFormat, url)
             delivering = false
             resolve(.delivered)
         } catch {
@@ -185,8 +183,8 @@ final class ResultCard {
         }
     }
 
-    fileprivate var promisedName: String { "\(Library.fileName()).\(suggested.fileExtension)" }
-    fileprivate var promisedType: String { suggested.type.identifier }
+    fileprivate var promisedName: String { "\(Library.fileName()).\(selectedFormat.fileExtension)" }
+    fileprivate var promisedType: String { selectedFormat.type.identifier }
 }
 
 /// The card's contents: a looping muted thumbnail and the format row.
@@ -196,6 +194,9 @@ private final class CardView: NSVisualEffectView {
     private var looper: AVPlayerLooper?
     private var closeButton: NSButton?
     private var thumb: ThumbView?
+    private var formatButtons: [Format: TextButton] = [:]
+    private var saveButton: NSButton?
+    private var copyButton: NSButton?
 
     init(frame: CGRect, owner: ResultCard) {
         self.owner = owner
@@ -246,11 +247,21 @@ private final class CardView: NSVisualEffectView {
             let button = TextButton(format.label, emphasized: format == suggested, target: self, action: #selector(pick(_:)))
             button.tag = i
             button.toolTip = format.help
-            button.setAccessibilityLabel(tr("Save as %@", format.label))
+            button.setAccessibilityLabel(tr("Select %@ format", format.label))
+            formatButtons[format] = button
             row.addArrangedSubview(button)
         }
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
+
+        let save = NSButton(image: NSImage(systemSymbolName: "square.and.arrow.down", accessibilityDescription: tr("Save"))!,
+                            target: self, action: #selector(saveToFolder))
+        save.isBordered = false
+        save.contentTintColor = .secondaryLabelColor
+        save.symbolConfiguration = .init(pointSize: 11, weight: .regular)
+        save.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(save)
+        saveButton = save
 
         let copy = NSButton(image: NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: tr("Copy"))!,
                             target: self, action: #selector(copyToClipboard))
@@ -261,10 +272,14 @@ private final class CardView: NSVisualEffectView {
         copy.setAccessibilityLabel(tr("Copy %@ to clipboard", suggested.label))
         copy.translatesAutoresizingMaskIntoConstraints = false
         addSubview(copy)
+        copyButton = copy
+        select(suggested)
 
         NSLayoutConstraint.activate([
             row.centerXAnchor.constraint(equalTo: leadingAnchor, constant: bar.midX),
             row.centerYAnchor.constraint(equalTo: bottomAnchor, constant: -bar.midY),
+            save.trailingAnchor.constraint(equalTo: copy.leadingAnchor, constant: -5),
+            save.centerYAnchor.constraint(equalTo: row.centerYAnchor),
             copy.trailingAnchor.constraint(equalTo: leadingAnchor, constant: frame.maxX - 2),
             copy.centerYAnchor.constraint(equalTo: row.centerYAnchor),
         ])
@@ -302,6 +317,17 @@ private final class CardView: NSVisualEffectView {
         return field
     }
 
+    func select(_ format: Format) {
+        for (choice, button) in formatButtons {
+            button.emphasized = choice == format
+            button.state = choice == format ? .on : .off
+        }
+        copyButton?.toolTip = tr("Copy %@ to clipboard", format.label)
+        copyButton?.setAccessibilityLabel(tr("Copy %@ to clipboard", format.label))
+        saveButton?.toolTip = tr("Save as %@", format.label)
+        saveButton?.setAccessibilityLabel(tr("Save as %@", format.label))
+    }
+
     func stop() {
         player?.pause()
         looper = nil
@@ -311,6 +337,7 @@ private final class CardView: NSVisualEffectView {
     @objc private func pick(_ sender: NSButton) { owner?.picked(Format.allCases[sender.tag]) }
     @objc private func discard() { owner?.discard() }
     @objc private func copyToClipboard() { owner?.copy() }
+    @objc private func saveToFolder() { owner?.commit() }
 
     override func mouseEntered(with event: NSEvent) { closeButton?.isHidden = false; owner?.hover(true) }
     override func mouseExited(with event: NSEvent) { closeButton?.isHidden = true; owner?.hover(false) }
@@ -322,7 +349,7 @@ private final class CardView: NSVisualEffectView {
 /// A format word. The suggested one is semibold; hovering any of them brings it to full contrast.
 private final class TextButton: NSButton {
     private let text: String
-    private let emphasized: Bool
+    var emphasized: Bool { didSet { style(hovering: false) } }
 
     init(_ text: String, emphasized: Bool, target: AnyObject, action: Selector) {
         self.text = text

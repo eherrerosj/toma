@@ -6,6 +6,13 @@ Todos los cambios relevantes se documentan aquí. El formato sigue
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-11-07
+
+### Fixed
+
+- Selecting MP4, HEVC or GIF keeps the result thumbnail open. Copy, Save and drag delivery use the selected format.
+- A separate Save button replaces saving immediately when a format is selected. Untouched thumbnails still auto-save after six seconds.
+
 ## [1.3.1] - 2026-11-07
 
 ### Changed
