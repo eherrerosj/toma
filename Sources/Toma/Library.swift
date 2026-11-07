@@ -71,7 +71,7 @@ enum Library {
             let output = try await encode(clip, as: format, progress: progress)
             encoded = output
             try Task.checkCancellation()
-            try FileManager.default.moveItem(at: output, to: url)
+            try storage.deliver(output, to: url)
         } catch {
             if let encoded { try? FileManager.default.removeItem(at: encoded) }
             throw .exportFailed(underlying: "\(error)")

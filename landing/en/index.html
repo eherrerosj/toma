@@ -49,10 +49,10 @@
   "operatingSystem": "macOS 26",
   "softwareVersion": "1.2.0",
   "fileSize": "0.8 MB",
-  "downloadUrl": "https://github.com/felipebasurto/toma/releases/latest/download/Toma.dmg",
+  "downloadUrl": "https://github.com/eherrerosj/toma/releases/latest/download/Toma.dmg",
   "license": "https://opensource.org/licenses/MIT",
  "screenshot": "https://toma.felipebasurto.com/tarjeta.png",
- "sameAs": ["https://github.com/felipebasurto/toma"],
+ "sameAs": ["https://github.com/eherrerosj/toma"],
   "offers": {
    "@type": "Offer",
    "price": "0",
@@ -83,7 +83,7 @@
     "name": "Does it send anything to the internet?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "No. Everything happens on your Mac: Toma never connects to the internet and has no analytics. Clipboard copies are deleted after a day."
+     "text": "Recordings stay on your Mac. Update checks contact GitHub when requested or enabled in the menu. Clipboard files expire after 24 hours, within the next minute while Toma runs or at its next launch. This website requests Google Fonts; download analytics are disabled in this fork."
     }
    },
    {
@@ -137,7 +137,7 @@
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M16.37 12.73c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.76 2.28-1.6 2.78-.41 6.9 1.15 9.16.76 1.1 1.67 2.34 2.86 2.3 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.77-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.65zM14.1 5.98c.63-.77 1.06-1.83.94-2.9-.91.04-2.02.61-2.67 1.37-.58.67-1.1 1.76-.96 2.8 1.02.08 2.06-.52 2.69-1.27z"/></svg>
         Download for Mac
       </a>
-      <a class="btn secondary" href="https://github.com/felipebasurto/toma">
+      <a class="btn secondary" href="https://github.com/eherrerosj/toma">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>
         Code
         <span class="stars" data-stars hidden><span aria-hidden="true">★</span> <span data-count></span><span class="sr"> stars on GitHub</span></span>
@@ -254,7 +254,7 @@
       </details>
       <details>
         <summary>Does it send anything to the internet?</summary>
-        <p>No. Everything happens on your Mac: Toma never connects to the internet and has no analytics. Clipboard copies are deleted after a day.</p>
+        <p>Recordings stay on your Mac. Update checks contact GitHub when requested or enabled in the menu. Clipboard files expire after 24 hours, within the next minute while Toma runs or at its next launch. This website requests Google Fonts; download analytics are disabled in this fork.</p>
       </details>
       <details>
         <summary>Does it record sound?</summary>
@@ -283,9 +283,9 @@
 
 <footer class="wrap">
   <nav class="foot" aria-label="Links">
-    <a href="https://github.com/felipebasurto/toma">GitHub</a>
-    <a href="https://github.com/felipebasurto/toma/releases">Releases</a>
-    <a href="https://github.com/felipebasurto/toma/blob/main/CHANGELOG.md">Changelog</a>
+    <a href="https://github.com/eherrerosj/toma">GitHub</a>
+    <a href="https://github.com/eherrerosj/toma/releases">Releases</a>
+    <a href="https://github.com/eherrerosj/toma/blob/main/CHANGELOG.md">Changelog</a>
     <a href="https://felipebasurto.com">Made by Felipe Basurto <svg role="img" aria-label="Spain" width="18" height="12" viewBox="0 0 3 2" style="margin-left:6px;border-radius:2px"><rect width="3" height="2" fill="#aa151b"/><rect y=".5" width="3" height="1" fill="#f1bf00"/></svg></a>
     <a href="/es/" hreflang="es" lang="es">Español</a>
   </nav>
@@ -310,7 +310,7 @@
 </script>
 <script>
 (function () {
-  var repo = 'https://api.github.com/repos/felipebasurto/toma';
+  var repo = 'https://api.github.com/repos/eherrerosj/toma';
   function get(url) { return fetch(url).then(function (r) { if (!r.ok) throw r; return r.json(); }); }
   get(repo + '/releases/latest').then(function (rel) {
     var dmg = (rel.assets || []).filter(function (a) { return a.name === 'Toma.dmg'; })[0];
@@ -374,6 +374,5 @@
   });
 })();
 </script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "5d165796903945e7b88d262434e278f4"}'></script>
 </body>
 </html>

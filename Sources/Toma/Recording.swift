@@ -198,7 +198,7 @@ final class Recording {
 }
 
 /// A finished recording, not yet saved anywhere the user can see.
-/// Invariant: `master` is a finalized, playable MP4 in Toma's temp folder; Library consumes it
+/// Invariant: `master` is a finalized, playable MP4 in Toma's recovery folder; Library consumes it
 /// exactly once (save, copy or discard).
 nonisolated struct Clip: Sendable {
     let master: URL

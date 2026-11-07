@@ -70,11 +70,11 @@ nonisolated enum Transcoder {
         let audioPair = audioOut.flatMap { out in audioIn.map { UncheckedBox((out as AVAssetReaderOutput, $0)) } }
         do {
         try await withTaskCancellationHandler {
-            async let v: Void = pump.drain(videoPair, label: "toma.video") { time in
+            async let v: Void = pump.drain(videoPair) { time in
                 if duration > 0 { progress(min(1, time / duration)) }
             }
             async let a: Void = {
-                if let audioPair { try await pump.drain(audioPair, label: "toma.audio") { _ in } }
+                if let audioPair { try await pump.drain(audioPair) { _ in } }
             }()
             _ = try await (v, a)
         } onCancel: {
@@ -125,7 +125,7 @@ nonisolated enum Transcoder {
 
         func cancel() { reader.cancelReading(); writer.cancelWriting() }
 
-        func drain(_ box: UncheckedBox<(AVAssetReaderOutput, AVAssetWriterInput)>, label: String,
+        func drain(_ box: UncheckedBox<(AVAssetReaderOutput, AVAssetWriterInput)>,
                    time: @escaping @Sendable (Double) -> Void) async throws {
             let (output, input) = box.value
             defer { input.markAsFinished() }

@@ -56,6 +56,7 @@ final class Toma {
         case .reviewing(let card):
             if card.commit() { againAfterSaving = true }
         case .saving:
+            againAfterSaving = false
             sessionTask?.cancel()
         case .busy:
             break

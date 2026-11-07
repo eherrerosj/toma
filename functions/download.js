@@ -1,7 +1,7 @@
 // Counts a download, then sends the browser to the latest notarized disk image on GitHub.
 // Each click is one Analytics Engine row: blobs are [lang, from, country, referrer host].
 // Without the DOWNLOADS binding the redirect still works; it just isn't counted.
-const DMG = 'https://github.com/felipebasurto/toma/releases/latest/download/Toma.dmg';
+const DMG = 'https://github.com/eherrerosj/toma/releases/latest/download/Toma.dmg';
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);

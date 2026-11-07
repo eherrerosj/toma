@@ -56,4 +56,22 @@ import Testing
         #expect(throws: (any Error).self) { try store.rescue(master, to: destination) }
         #expect(try Data(contentsOf: destination) == bytes)
     }
+    @Test func finalDeliveryIsAtomicAndDoesNotOverwriteAnExistingFile() throws {
+        let root = try folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = RecordingStorage(root: root)
+        let encoded = root.appendingPathComponent("encoded.mp4")
+        let destination = root.appendingPathComponent("existing.mp4")
+        try Data([1, 2, 3]).write(to: encoded)
+        try Data([9]).write(to: destination)
+        #expect(throws: (any Error).self) { try store.deliver(encoded, to: destination) }
+        #expect(try Data(contentsOf: destination) == Data([9]))
+        #expect(try FileManager.default.contentsOfDirectory(atPath: root.path).allSatisfy { !$0.hasPrefix(".toma-delivery-") })
+        let fresh = root.appendingPathComponent("fresh.mp4")
+        try Data([1, 2, 3]).write(to: encoded)
+        try store.deliver(encoded, to: fresh)
+        #expect(try Data(contentsOf: fresh) == Data([1, 2, 3]))
+        #expect(!FileManager.default.fileExists(atPath: encoded.path))
+    }
+
 }

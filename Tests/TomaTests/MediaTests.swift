@@ -127,4 +127,47 @@ import Testing
         #expect(FileManager.default.fileExists(atPath: interrupted.path))
     }
 
+    @Test func systemAndMicrophoneTracksExportAsOneAACTrack() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("toma-audio-test-\(UUID())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let video = AVURLAsset(url: try await movie(in: root))
+        let soundURL = root.appendingPathComponent("tone.caf")
+        try writeTone(to: soundURL)
+        let sound = AVURLAsset(url: soundURL)
+        let composition = AVMutableComposition()
+        let range = CMTimeRange(start: .zero, duration: CMTime(value: 19, timescale: 10))
+        let videoTrack = try #require(try await video.loadTracks(withMediaType: .video).first)
+        let audioTrack = try #require(try await sound.loadTracks(withMediaType: .audio).first)
+        try composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)?
+            .insertTimeRange(range, of: videoTrack, at: .zero)
+        for _ in 0..<2 {
+            try composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)?
+                .insertTimeRange(range, of: audioTrack, at: .zero)
+        }
+        let session = try #require(AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough))
+        let master = root.appendingPathComponent("two-audio-tracks.mov")
+        try await session.export(to: master, as: .mov)
+        for format in [Format.mp4, .hevc] {
+            let target = root.appendingPathComponent("mixed.\(format.fileExtension)")
+            try await Transcoder.run(master, to: target, format: format, progress: { _ in })
+            let result = AVURLAsset(url: target)
+            let tracks = try await result.loadTracks(withMediaType: .audio)
+            #expect(tracks.count == 1)
+            let descriptions = try await #require(tracks.first).load(.formatDescriptions)
+            #expect(descriptions.first.map { CMFormatDescriptionGetMediaSubType($0) } == kAudioFormatMPEG4AAC)
+            #expect(try await result.load(.duration).seconds > 1.8)
+        }
+    }
+
+    private func writeTone(to url: URL) throws {
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1))
+        let samples = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 96_000))
+        samples.frameLength = samples.frameCapacity
+        let channel = try #require(samples.floatChannelData?.pointee)
+        for i in 0..<Int(samples.frameLength) { channel[i] = Float(sin(Double(i) * 2 * .pi * 440 / 48_000)) * 0.05 }
+        let file = try AVAudioFile(forWriting: url, settings: format.settings)
+        try file.write(from: samples)
+    }
+
 }

@@ -7,13 +7,13 @@
 - Format is chosen after recording, from a thumbnail that plays the clip: MP4 (H.264), HEVC or GIF. Doing nothing saves in the last format used.
 - Re-encodes for quality, not a fixed size: 4 s of scrolling text at 1120 × 720 is 0.46 MB as MP4 and 0.25 MB as HEVC.
 - Records the Mac's sound and, optionally, the microphone. The built-in ⇧⌘5 recorder saves only .mov and cannot record the Mac's sound.
-- Private: works offline, no analytics, files stay in the folder you choose.
+- Recordings stay local. Optional update checks contact GitHub. Originals stay in the local recovery folder until saved or discarded. Clipboard files expire after 24 hours while running, or at the next launch.
 - Good fit for: GIFs for READMEs and pull requests, short clips for Slack, Mail or docs, bug reports.
 
 ## Links
 
 - [Website (English)](https://toma.felipebasurto.com/en/)
 - [Website (Spanish)](https://toma.felipebasurto.com/es/)
-- [Download Toma.dmg](https://github.com/felipebasurto/toma/releases/latest/download/Toma.dmg)
-- [Source code and README](https://github.com/felipebasurto/toma)
-- [Changelog](https://github.com/felipebasurto/toma/blob/main/CHANGELOG.md)
+- [Download Toma.dmg](https://github.com/eherrerosj/toma/releases/latest/download/Toma.dmg)
+- [Source code and README](https://github.com/eherrerosj/toma)
+- [Changelog](https://github.com/eherrerosj/toma/blob/main/CHANGELOG.md)

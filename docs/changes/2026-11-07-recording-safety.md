@@ -11,7 +11,7 @@ GIF export splits long delays and rejects decoder failures. Packaging discovers 
 Validation passed:
 
 1. Run `swift test -Xswiftc -warnings-as-errors`: 23 tests pass.
-2. Run `python3 -m unittest discover -s tests -v`: 2 tests pass.
+2. Run `python3 -m unittest discover -s Tests -v`: 2 tests pass.
 3. Build the universal app and inspect its bundle.
 4. Capture the synthetic animation and confirm a playable 1204 by 462 H.264 MP4.
 

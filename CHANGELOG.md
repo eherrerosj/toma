@@ -6,6 +6,26 @@ Todos los cambios relevantes se documentan aquí. El formato sigue
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-07
+
+### Changed
+
+- This personal fork uses its own application identity, storage and GitHub release feed.
+- Failed exports keep the original for recovery across restarts. Drag delivery has exclusive ownership.
+- Clipboard files expire during use and at launch. The privacy text explains network access and retained originals.
+- Capture has storage and duration limits. Exports support cancellation and bound GIF concurrency.
+- Updates require the expected Developer ID application, SHA-256 digest and exact advertised version.
+- Builds discover the SwiftPM output path. Releases use an explicit signer and the built commit.
+
+### Fixed
+
+- Long GIF holds preserve their duration. Decoder failures cannot silently produce a frozen GIF and delete the original.
+- A second process cannot purge another process's active workspace at launch.
+
+### Added
+
+- Swift regression and real media export tests, release-script tests and macOS CI on Apple silicon and Intel.
+
 ## [1.3.0] - 2026-11-05
 
 ### Añadido

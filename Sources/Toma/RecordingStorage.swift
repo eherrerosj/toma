@@ -43,6 +43,14 @@ nonisolated struct RecordingStorage: Sendable {
         }
     }
 
+    func deliver(_ encoded: URL, to destination: URL) throws {
+        let fm = FileManager.default
+        let staging = destination.deletingLastPathComponent().appending(path: ".toma-delivery-\(UUID())")
+        defer { try? fm.removeItem(at: staging) }
+        try fm.moveItem(at: encoded, to: staging)
+        try fm.moveItem(at: staging, to: destination)
+    }
+
     // Copy beside the destination first so an interrupted rescue never exposes a partial final file.
     func rescue(_ master: URL, to destination: URL) throws {
         let fm = FileManager.default

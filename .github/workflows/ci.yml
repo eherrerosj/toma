@@ -1,0 +1,32 @@
+name: Build and test
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, macos-26-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Run regression and media integration tests
+        run: swift test
+      - name: Check release scripts
+        run: |
+          sh -n build.sh scripts/release.sh scripts/github.sh
+          python3 -m unittest discover -s Tests -v
+      - name: Build and inspect the universal app
+        run: |
+          ./build.sh
+          python3 scripts/check-bundle.py
