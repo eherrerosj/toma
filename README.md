@@ -70,8 +70,8 @@ If you press the shortcut while the thumbnail is on screen, Toma saves the recor
 | **HEVC** | Half the size, ideal on Apple devices and modern browsers | 0.25 MB |
 | **GIF** | Animation without a player, for READMEs, chats and docs | Sharp or light |
 
-Toma first records a high-quality original and re-encodes it for quality, not for a fixed size.
-Text stays sharp, and a still screen barely weighs anything. The format you usually pick starts
+Toma first records an original and re-encodes it with a bitrate that scales with the region size.
+MP4 and HEVC use compression settings supported on Apple silicon and Intel. The format you usually pick starts
 encoding while you look at the thumbnail, so saving it is immediate.
 
 The GIF uses a custom encoder built for screens. Each frame only stores what changed, and interface

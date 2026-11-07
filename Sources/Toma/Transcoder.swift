@@ -1,10 +1,7 @@
 import Foundation
 import AVFoundation
 
-/// Re-encodes the master into a lighter video. Quality-targeted (not bitrate-targeted) hardware
-/// encoding: static screens cost almost nothing, text stays sharp. Measured on a 4 s scrolling
-/// test at 1120×720: master 2.5 MB → MP4 ≈ 1.1 MB, HEVC ≈ 0.7 MB. All audio tracks (Mac sound,
-/// microphone) are mixed into one AAC track, because many players only play the first track.
+/// Mixes capture audio into one AAC track and exports using portable video settings.
 nonisolated enum Transcoder {
     @concurrent static func run(_ source: URL, to url: URL, format: Format,
                     progress: @escaping @Sendable (Double) -> Void) async throws {
@@ -31,8 +28,13 @@ nonisolated enum Transcoder {
         }
 
         let writer = try AVAssetWriter(outputURL: url, fileType: format == .hevc ? .mov : .mp4)
+        guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0 else {
+            throw TomaError.exportFailed(underlying: "invalid video dimensions")
+        }
+        let bitrate = Int(max(250_000, min(32_000_000, size.width * size.height * (format == .hevc ? 2 : 3))))
+        // Quality is a JPEG setting; some Intel H.264 encoders throw an Objective-C exception for it.
         var compression: [String: Any] = [
-            AVVideoQualityKey: format == .hevc ? 0.55 : 0.6,
+            AVVideoAverageBitRateKey: bitrate,
             AVVideoExpectedSourceFrameRateKey: 60,
             AVVideoMaxKeyFrameIntervalDurationKey: 2,
         ]
@@ -44,6 +46,9 @@ nonisolated enum Transcoder {
             AVVideoCompressionPropertiesKey: compression,
         ]
         if !colors.isEmpty { videoSettings[AVVideoColorPropertiesKey] = colors }
+        guard writer.canApply(outputSettings: videoSettings, forMediaType: .video) else {
+            throw TomaError.exportFailed(underlying: "unsupported video settings")
+        }
         let videoIn = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         videoIn.expectsMediaDataInRealTime = false
         writer.add(videoIn)

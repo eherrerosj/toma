@@ -26,7 +26,7 @@ A crash before the capture output finalizes can still leave an unplayable MP4. P
 
 ## Media exports
 
-`Transcoder` uses AVFoundation to make MP4 or HEVC video. It mixes system and microphone tracks into one AAC track. It checks reader/writer completion and supports task cancellation while waiting for encoder capacity. Writer finalization has a deadline.
+`Transcoder` uses AVFoundation to make MP4 or HEVC video. Its average bitrate scales with the region size, from 250 kbit/s to 32 Mbit/s. It validates the settings before creating a writer input. The JPEG quality key is excluded because Intel H.264 encoders reject it with an Objective-C exception. It mixes system and microphone tracks into one AAC track. It checks reader/writer completion and supports task cancellation while waiting for encoder capacity. Writer finalization has a deadline.
 
 `GIFEncoder` reads sequential frames and batches independent changed regions through `GIF`. It requires successful reader completion before accepting the export. A decoder failure removes the incomplete GIF and keeps its master. The GIF writer splits holds that exceed the format's 16-bit delay field.
 

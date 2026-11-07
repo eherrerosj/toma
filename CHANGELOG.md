@@ -19,6 +19,7 @@ Todos los cambios relevantes se documentan aquí. El formato sigue
 
 ### Fixed
 
+- MP4 and HEVC use supported bitrate settings. Intel H.264 export no longer throws an Objective-C exception for the JPEG quality setting.
 - Long GIF holds preserve their duration. Decoder failures cannot silently produce a frozen GIF and delete the original.
 - A second process cannot purge another process's active workspace at launch.
 
