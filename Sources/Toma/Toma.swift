@@ -28,6 +28,7 @@ final class Toma {
         self.updater = updater
         statusItem = StatusItem(updater: updater)
         statusItem.onPress = { [unowned self] in toggle() }
+        statusItem.onRecordWindow = { [unowned self] in start(window: true) }
         statusItem.onReopen = { [unowned self] in reopenLast() }
         statusItem.render(phase)
     }
@@ -37,9 +38,7 @@ final class Toma {
     func toggle() {
         switch phase {
         case .idle:
-            if case .installing = updater.state { return }
-            phase = .busy
-            runSession { await self.session() }
+            start(window: false)
         case .recording(let recording, _):
             recording.stop()
         case .reviewing(let card):
@@ -50,6 +49,13 @@ final class Toma {
         case .busy:
             break
         }
+    }
+
+    private func start(window: Bool) {
+        guard case .idle = phase else { return }
+        if case .installing = updater.state { return }
+        phase = .busy
+        runSession { await self.session(window: window) }
     }
 
     private func runSession(_ action: @escaping () async -> Void) {
@@ -76,19 +82,26 @@ final class Toma {
     }
 
     /// One capture, start to finish. Every exit path returns to `.idle` (set by `toggle`).
-    private func session() async {
-        guard Recording.ensureAccess() else { return }
-        guard let region = await Overlay.select() else { return }    // Esc / tiny drag = nothing happened
-
+    private func session(window: Bool) async {
+        defer { if window { WindowPicker.deactivate() } }
         let recording: Recording
-        do { recording = try await Recording.start(region) } catch { return present(error) }
-        let frame = Overlay.frame(around: region)
+        var frame: Overlay.FrameHandle?
+        do {
+            if window {
+                guard let filter = try await WindowPicker.select() else { return }
+                recording = try await Recording.start(window: filter)
+            } else {
+                guard Recording.ensureAccess(), let region = await Overlay.select() else { return }
+                recording = try await Recording.start(region)
+                frame = Overlay.frame(around: region)
+            }
+        } catch { return present(error) }
         phase = .recording(recording, since: .now)
 
         // Resolves after stop() *or* if the system/display ended the stream.
         let clip: Clip
-        do { clip = try await recording.clip } catch { frame.close(); return present(error) }
-        frame.close()
+        do { clip = try await recording.clip } catch { frame?.close(); return present(error) }
+        frame?.close()
 
         if let reason = recording.limitReason {
             let alert = NSAlert()

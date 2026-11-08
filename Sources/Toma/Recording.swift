@@ -3,13 +3,7 @@ import AppKit
 import AVFoundation
 import Synchronization
 
-/// Everything Toma knows about ScreenCaptureKit and TCC lives here and nowhere else.
-/// Public surface: `ensureAccess()`, `start(_:)`, `stop()`, `clip`. Callers never see
-/// SCStream, SCContentFilter, configurations, delegates, or the temp file's location policy.
-///
-/// Records straight to an MP4 "master" with SCRecordingOutput (H.264, native pixels, up to
-/// 60 fps, sRGB, cursor visible, sound per Preferences.audio). The master is the single source every export
-/// derives from; nothing else is captured or buffered.
+/// Records a selected source to a recoverable MP4 master with bounded startup and resource limits.
 final class Recording {
     /// Pre-flight before the overlay ever appears, so the user never drags a region only to
     /// be told it can't be recorded. Returns true only when capture will actually work right now.
@@ -54,10 +48,23 @@ final class Recording {
         let me = content.applications.filter { $0.processID == getpid() }
         let filter = SCContentFilter(display: display, excludingApplications: me, exceptingWindows: [])
 
+        return try await start(filter: filter, region: region, sourceRect: region.sourceRect)
+    }
+
+    static func start(window filter: SCContentFilter) async throws(TomaError) -> Recording {
+        guard filter.style == .window, filter.includedWindows.count == 1,
+              let screen = NSScreen.main, let displayID = screen.displayID,
+              let region = WindowCapture.geometry(size: filter.contentRect.size, scale: CGFloat(filter.pointPixelScale),
+                                                  displayID: displayID) else { throw .displayUnavailable }
+        return try await start(filter: filter, region: region, sourceRect: nil)
+    }
+
+    private static func start(filter: SCContentFilter, region: ScreenRegion, sourceRect: CGRect?) async throws(TomaError) -> Recording {
         let config = SCStreamConfiguration()
-        config.sourceRect = region.sourceRect
+        if let sourceRect { config.sourceRect = sourceRect }
+        config.ignoreShadowsSingleWindow = true
         (config.width, config.height) = region.pixelSize
-        config.scalesToFit = false
+        config.scalesToFit = sourceRect == nil
         config.captureResolution = .best
         config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
         config.showsCursor = true

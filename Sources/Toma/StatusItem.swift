@@ -14,6 +14,7 @@ import ServiceManagement
 final class StatusItem: NSObject {
     /// Set once by Toma. Called for "Record Region" and for any click while recording.
     var onPress: () -> Void = {}
+    var onRecordWindow: () -> Void = {}
 
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let updater: Updater
@@ -96,6 +97,9 @@ final class StatusItem: NSObject {
         record.keyEquivalentModifierMask = [.option, .shift, .command]
         if case .installing = updater.state { record.isEnabled = false }
         menu.addItem(record)
+        let window = item(tr("Record Window…"), #selector(recordWindow))
+        if case .installing = updater.state { window.isEnabled = false }
+        menu.addItem(window)
         let reopen = item(tr("Reopen Last Recording"), #selector(reopenLast))
         reopen.isEnabled = RecentRecording(storage: Library.storage).isAvailable
         if case .installing = updater.state { reopen.isEnabled = false }
@@ -179,6 +183,8 @@ final class StatusItem: NSObject {
               let choice = Preferences.ThumbnailTimeout(rawValue: raw) else { return }
         Preferences.thumbnailTimeout = choice
     }
+
+    @objc private func recordWindow() { onRecordWindow() }
 
     @objc private func reopenLast() { onReopen?() }
 

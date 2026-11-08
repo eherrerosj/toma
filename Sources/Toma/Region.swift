@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
 
-/// A rectangle of exactly one display that ScreenCaptureKit can record as-is.
+/// Capture geometry. Region selection uses display coordinates; independent windows use content-local coordinates.
 ///
 /// Invariants (all established by the only initializer, so every value is capturable):
 /// - lies entirely inside one display (`displayID`); a drag that crosses screens is clamped
