@@ -110,6 +110,7 @@ final class Toma {
         let card = ResultCard(clip, suggesting: suggested, autoSaveAfter: reopened ? nil : Preferences.thumbnailTimeout.delay)
         phase = .reviewing(card)
         let choice = await card.choice()
+        let clip = card.clip
 
         phase = .saving(0)
         let progress: @Sendable (Double) -> Void = { [weak self] value in

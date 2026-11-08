@@ -3,9 +3,9 @@ import AVFoundation
 
 /// Mixes capture audio into one AAC track and exports using portable video settings.
 nonisolated enum Transcoder {
-    @concurrent static func run(_ source: URL, to url: URL, format: Format,
+    @concurrent static func run(_ source: URL, to url: URL, format: Format, trim: ClipTrim? = nil,
                     progress: @escaping @Sendable (Double) -> Void) async throws {
-        let asset = AVURLAsset(url: source)
+        let asset = try await ClipTrim.asset(source, trim: trim)
         guard let video = try await asset.loadTracks(withMediaType: .video).first else {
             throw TomaError.exportFailed(underlying: "no video track")
         }

@@ -69,3 +69,17 @@
 "After 6 Seconds" = "Después de 6 segundos";
 "After 15 Seconds" = "Después de 15 segundos";
 "Never" = "Nunca";
+
+"Trim Recording" = "Recortar grabación";
+
+"Start (seconds)" = "Inicio (segundos)";
+
+"End (seconds)" = "Fin (segundos)";
+
+"Start %@ s · End %@ s · Length %@ s" = "Inicio %@ s · Fin %@ s · Duración %@ s";
+
+"Reset" = "Restablecer";
+
+"Cancel" = "Cancelar";
+
+"Apply Trim" = "Aplicar recorte";

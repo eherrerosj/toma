@@ -11,11 +11,13 @@ final class ResultCard {
         case delivered
     }
 
-    private let clip: Clip
+    private(set) var clip: Clip
     private(set) var selectedFormat: Format
     private var awaitingAction = false
     private let write: (Clip, Format, URL) async throws -> Void
     private var delivering = false
+    private var editing = false
+    private let editor: (Clip) async -> TrimEditor.Decision
     private(set) var selection: Choice?
     private let decided = OneShot<Choice>()
     private var panel: NSPanel?
@@ -27,11 +29,13 @@ final class ResultCard {
     private let autoSaveAfter: Duration?
 
     init(_ clip: Clip, suggesting suggested: Format, autoSaveAfter: Duration? = Preferences.thumbnailTimeout.delay,
+         editor: @escaping (Clip) async -> TrimEditor.Decision = { await TrimEditor.edit($0) },
          write: @escaping (Clip, Format, URL) async throws -> Void = { clip, format, url in
              try await Library.save(clip, as: format, to: url)
          }) {
         self.clip = clip
         self.selectedFormat = suggested
+        self.editor = editor
         self.write = write
         self.autoSaveAfter = autoSaveAfter
     }
@@ -47,13 +51,13 @@ final class ResultCard {
     /// The Save button, swipe and recording shortcut share the same selected-format action.
     @discardableResult
     func commit() -> Bool {
-        guard !dragging, !delivering, selection == nil else { return false }
+        guard !editing, !dragging, !delivering, selection == nil else { return false }
         resolve(.save(selectedFormat))
         return true
     }
 
     private func resolve(_ choice: Choice) {
-        guard !delivering, selection == nil else { return }
+        guard !editing, !delivering, selection == nil else { return }
         selection = choice
         timeout?.cancel()
         decided.resolve(choice)
@@ -61,7 +65,7 @@ final class ResultCard {
 
     func restartTimeout() {
         timeout?.cancel()
-        guard !hovering, !dragging, !delivering, !awaitingAction, selection == nil else { return }
+        guard !editing, !hovering, !dragging, !delivering, !awaitingAction, selection == nil else { return }
         guard let delay = autoSaveAfter else { return }
         timeout = Task { [weak self] in
             try? await Task.sleep(for: delay)
@@ -137,40 +141,53 @@ final class ResultCard {
 
     // MARK: input from the card view
 
-    fileprivate func hover(_ inside: Bool) {
+    func hover(_ inside: Bool) {
         hovering = inside
         restartTimeout()
     }
 
     func picked(_ format: Format) {
-        guard !delivering, !dragging, selection == nil else { return }
+        guard !editing, !delivering, !dragging, selection == nil else { return }
         selectedFormat = format
         awaitingAction = true
         restartTimeout()
         (panel?.contentView as? CardView)?.select(format)
     }
 
-    func copy() { resolve(.copy(selectedFormat)) }
-    fileprivate func discard() { resolve(.discard) }
+    func edit() async {
+        guard !editing, !delivering, !dragging, selection == nil, clip.duration >= 0.1 else { return }
+        editing = true
+        awaitingAction = true
+        restartTimeout()
+        let decision = await editor(clip)
+        if case .apply(let range) = decision {
+            clip.trim = range
+            (panel?.contentView as? CardView)?.updatePreview(clip)
+        }
+        editing = false
+    }
 
-    fileprivate func scrolled(_ deltaX: CGFloat) {
+    func copy() { resolve(.copy(selectedFormat)) }
+    func discard() { resolve(.discard) }
+
+    func scrolled(_ deltaX: CGFloat) {
         swipe += deltaX
         if swipe < -40 || swipe > 40 { commit() }   // either direction reads as "away"
     }
 
-    fileprivate func dragBegan() {
+    func dragBegan() {
         dragging = true
         restartTimeout()
     }
 
-    fileprivate func dragEnded(delivered: Bool) {
+    func dragEnded(delivered: Bool) {
         dragging = false
         if !delivered { restartTimeout() }
     }
 
     /// Called by the file promise: write the clip at exactly `url`.
     func deliver(to url: URL) async throws {
-        guard !delivering, selection == nil else { throw CocoaError(.fileWriteUnknown) }
+        guard !editing, !delivering, selection == nil else { throw CocoaError(.fileWriteUnknown) }
         delivering = true
         timeout?.cancel()
         do {
@@ -183,268 +200,6 @@ final class ResultCard {
         }
     }
 
-    fileprivate var promisedName: String { "\(Library.fileName()).\(selectedFormat.fileExtension)" }
-    fileprivate var promisedType: String { selectedFormat.type.identifier }
-}
-
-/// The card's contents: a looping muted thumbnail and the format row.
-private final class CardView: NSVisualEffectView {
-    private weak var owner: ResultCard?
-    private var player: AVQueuePlayer?
-    private var looper: AVPlayerLooper?
-    private var closeButton: NSButton?
-    private var thumb: ThumbView?
-    private var formatButtons: [Format: TextButton] = [:]
-    private var saveButton: NSButton?
-    private var copyButton: NSButton?
-
-    init(frame: CGRect, owner: ResultCard) {
-        self.owner = owner
-        super.init(frame: frame)
-        material = .popover
-        state = .active
-        blendingMode = .behindWindow
-        wantsLayer = true
-        layer?.cornerRadius = 12
-        layer?.cornerCurve = .continuous
-        layer?.masksToBounds = true
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    func build(thumb frame: CGRect, bar: CGRect, clip: Clip, suggested: Format) {
-        let item = AVPlayerItem(url: clip.master)
-        let player = AVQueuePlayer()
-        player.isMuted = true
-        looper = AVPlayerLooper(player: player, templateItem: item)
-        self.player = player
-
-        let thumb = ThumbView(frame: frame, owner: owner)
-        thumb.wantsLayer = true
-        thumb.layer?.cornerRadius = 6                   // concentric with the card: 12 − 6 pt inset
-        thumb.layer?.cornerCurve = .continuous
-        thumb.layer?.masksToBounds = true
-        thumb.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.06).cgColor
-        let video = AVPlayerLayer(player: player)
-        video.videoGravity = .resizeAspect
-        video.frame = thumb.bounds
-        video.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-        thumb.layer?.addSublayer(video)
-        addSubview(thumb)
-        self.thumb = thumb
-        player.play()
-        Task { [weak thumb] in
-            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: clip.master))
-            generator.maximumSize = CGSize(width: frame.width * 2, height: frame.height * 2)
-            guard let (image, _) = try? await generator.image(at: .zero) else { return }
-            thumb?.poster = NSImage(cgImage: image, size: frame.size)
-        }
-
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.spacing = 5
-        for (i, format) in Format.allCases.enumerated() {
-            if i > 0 { row.addArrangedSubview(label("·", color: .tertiaryLabelColor, size: 12)) }
-            let button = TextButton(format.label, emphasized: format == suggested, target: self, action: #selector(pick(_:)))
-            button.tag = i
-            button.toolTip = format.help
-            button.setAccessibilityLabel(tr("Select %@ format", format.label))
-            formatButtons[format] = button
-            row.addArrangedSubview(button)
-        }
-        row.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(row)
-
-        let save = NSButton(image: NSImage(systemSymbolName: "square.and.arrow.down", accessibilityDescription: tr("Save"))!,
-                            target: self, action: #selector(saveToFolder))
-        save.isBordered = false
-        save.contentTintColor = .secondaryLabelColor
-        save.symbolConfiguration = .init(pointSize: 11, weight: .regular)
-        save.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(save)
-        saveButton = save
-
-        let copy = NSButton(image: NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: tr("Copy"))!,
-                            target: self, action: #selector(copyToClipboard))
-        copy.isBordered = false
-        copy.contentTintColor = .secondaryLabelColor
-        copy.symbolConfiguration = .init(pointSize: 11, weight: .regular)
-        copy.toolTip = tr("Copy %@ to clipboard", suggested.label)
-        copy.setAccessibilityLabel(tr("Copy %@ to clipboard", suggested.label))
-        copy.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(copy)
-        copyButton = copy
-        select(suggested)
-
-        NSLayoutConstraint.activate([
-            row.centerXAnchor.constraint(equalTo: leadingAnchor, constant: bar.midX),
-            row.centerYAnchor.constraint(equalTo: bottomAnchor, constant: -bar.midY),
-            save.trailingAnchor.constraint(equalTo: copy.leadingAnchor, constant: -5),
-            save.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            copy.trailingAnchor.constraint(equalTo: leadingAnchor, constant: frame.maxX - 2),
-            copy.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-        ])
-
-        // Duration, quietly, in the thumbnail's corner: the one number worth knowing.
-        let seconds = Int(clip.duration.rounded())
-        let badge = label(String(format: "%d:%02d", seconds / 60, seconds % 60), color: .white, size: 10, mono: true)
-        badge.wantsLayer = true
-        badge.shadow = { let s = NSShadow(); s.shadowBlurRadius = 3; s.shadowColor = .black.withAlphaComponent(0.6); s.shadowOffset = .zero; return s }()
-        badge.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(badge, positioned: .above, relativeTo: thumb)
-        NSLayoutConstraint.activate([
-            badge.leadingAnchor.constraint(equalTo: leadingAnchor, constant: frame.minX + 6),
-            badge.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(frame.minY + 4)),
-        ])
-
-        let close = NSButton(image: NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: tr("Discard"))!,
-                             target: self, action: #selector(discard))
-        close.isBordered = false
-        close.contentTintColor = .white
-        close.symbolConfiguration = .init(pointSize: 15, weight: .regular)
-        close.frame = CGRect(x: frame.minX + 4, y: frame.maxY - 22, width: 18, height: 18)
-        close.isHidden = true
-        addSubview(close)
-        closeButton = close
-
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-                                       owner: self))
-    }
-
-    private func label(_ text: String, color: NSColor, size: CGFloat, mono: Bool = false) -> NSTextField {
-        let field = NSTextField(labelWithString: text)
-        field.font = mono ? .monospacedDigitSystemFont(ofSize: size, weight: .medium) : .systemFont(ofSize: size)
-        field.textColor = color
-        return field
-    }
-
-    func select(_ format: Format) {
-        for (choice, button) in formatButtons {
-            button.emphasized = choice == format
-            button.state = choice == format ? .on : .off
-        }
-        copyButton?.toolTip = tr("Copy %@ to clipboard", format.label)
-        copyButton?.setAccessibilityLabel(tr("Copy %@ to clipboard", format.label))
-        saveButton?.toolTip = tr("Save as %@", format.label)
-        saveButton?.setAccessibilityLabel(tr("Save as %@", format.label))
-    }
-
-    func stop() {
-        player?.pause()
-        looper = nil
-        player = nil
-    }
-
-    @objc private func pick(_ sender: NSButton) { owner?.picked(Format.allCases[sender.tag]) }
-    @objc private func discard() { owner?.discard() }
-    @objc private func copyToClipboard() { owner?.copy() }
-    @objc private func saveToFolder() { owner?.commit() }
-
-    override func mouseEntered(with event: NSEvent) { closeButton?.isHidden = false; owner?.hover(true) }
-    override func mouseExited(with event: NSEvent) { closeButton?.isHidden = true; owner?.hover(false) }
-    override func scrollWheel(with event: NSEvent) {
-        if event.hasPreciseScrollingDeltas { owner?.scrolled(event.scrollingDeltaX) }
-    }
-}
-
-/// A format word. The suggested one is semibold; hovering any of them brings it to full contrast.
-private final class TextButton: NSButton {
-    private let text: String
-    var emphasized: Bool { didSet { style(hovering: false) } }
-
-    init(_ text: String, emphasized: Bool, target: AnyObject, action: Selector) {
-        self.text = text
-        self.emphasized = emphasized
-        super.init(frame: .zero)
-        self.target = target
-        self.action = action
-        isBordered = false
-        setButtonType(.momentaryChange)
-        style(hovering: false)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    private func style(hovering: Bool) {
-        attributedTitle = NSAttributedString(string: text, attributes: [
-            .font: NSFont.systemFont(ofSize: 12, weight: emphasized ? .semibold : .regular),
-            .foregroundColor: emphasized || hovering ? NSColor.labelColor : NSColor.secondaryLabelColor,
-        ])
-    }
-
-    override func mouseEntered(with event: NSEvent) { style(hovering: true) }
-    override func mouseExited(with event: NSEvent) { style(hovering: false) }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
-}
-
-/// The thumbnail: a drag source that promises the file, like the screenshot thumbnail.
-private final class ThumbView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate {
-    private weak var owner: ResultCard?
-    private var downAt: CGPoint?
-    private var delivered = false
-
-    init(frame: CGRect, owner: ResultCard?) {
-        self.owner = owner
-        super.init(frame: frame)
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func mouseDown(with event: NSEvent) { downAt = event.locationInWindow }
-
-    override func mouseDragged(with event: NSEvent) {
-        guard let start = downAt, let owner else { return }
-        let p = event.locationInWindow
-        guard hypot(p.x - start.x, p.y - start.y) > 4 else { return }
-        downAt = nil
-
-        let provider = NSFilePromiseProvider(fileType: owner.promisedType, delegate: self)
-        let item = NSDraggingItem(pasteboardWriter: provider)
-        item.setDraggingFrame(bounds, contents: snapshot())
-        owner.dragBegan()
-        beginDraggingSession(with: [item], event: event, source: self)
-    }
-
-    /// The first frame of the clip, loaded when the card appears; the drag image.
-    var poster: NSImage?
-
-    private func snapshot() -> NSImage {
-        if let poster { return poster }
-        let image = NSImage(size: bounds.size)
-        image.lockFocus()
-        NSColor.black.withAlphaComponent(0.15).setFill()
-        NSBezierPath(roundedRect: CGRect(origin: .zero, size: bounds.size), xRadius: 6, yRadius: 6).fill()
-        image.unlockFocus()
-        return image
-    }
-
-    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        .copy
-    }
-
-    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        if operation == [] { owner?.dragEnded(delivered: false) }
-    }
-
-    nonisolated func filePromiseProvider(_ provider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
-        MainActor.assumeIsolated { owner?.promisedName ?? tr("Screen Recording") }
-    }
-
-    nonisolated func operationQueue(for provider: NSFilePromiseProvider) -> OperationQueue { .main }
-
-    nonisolated func filePromiseProvider(_ provider: NSFilePromiseProvider, writePromiseTo url: URL,
-                                         completionHandler: @escaping @Sendable ((any Error)?) -> Void) {
-        MainActor.assumeIsolated {
-            guard let owner else { return completionHandler(CocoaError(.fileWriteUnknown)) }
-            Task {
-                do {
-                    try await owner.deliver(to: url)
-                    owner.dragEnded(delivered: true)
-                    completionHandler(nil)
-                } catch {
-                    owner.dragEnded(delivered: false)
-                    completionHandler(error)
-                }
-            }
-        }
-    }
+    internal var promisedName: String { "\(Library.fileName()).\(selectedFormat.fileExtension)" }
+    internal var promisedType: String { selectedFormat.type.identifier }
 }

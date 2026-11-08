@@ -158,6 +158,12 @@ import Testing
             #expect(descriptions.first.map { CMFormatDescriptionGetMediaSubType($0) } == kAudioFormatMPEG4AAC)
             #expect(try await result.load(.duration).seconds > 1.8)
         }
+        let trimmed = root.appending(path: "trimmed-audio.mp4")
+        let trim = try #require(ClipTrim(start: 0.4, end: 1.4, duration: 1.9))
+        try await Transcoder.run(master, to: trimmed, format: .mp4, trim: trim, progress: { _ in })
+        let result = AVURLAsset(url: trimmed)
+        #expect(try await result.loadTracks(withMediaType: .audio).count == 1)
+        #expect(abs(try await result.load(.duration).seconds - 1) < 0.07)
     }
 
     private func writeTone(to url: URL) throws {
@@ -168,6 +174,22 @@ import Testing
         for i in 0..<Int(samples.frameLength) { channel[i] = Float(sin(Double(i) * 2 * .pi * 440 / 48_000)) * 0.05 }
         let file = try AVAudioFile(forWriting: url, settings: format.settings)
         try file.write(from: samples)
+    }
+
+    @Test func trimmingInvalidatesAnAlreadyPreparedFullExport() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "toma-prepared-trim-\(UUID())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let previous = Library.storage
+        Library.storage = RecordingStorage(root: root)
+        defer { Library.storage = previous; try? FileManager.default.removeItem(at: root) }
+        let source = try await movie(in: root)
+        var selected = try clip(source)
+        Library.prepare(selected, as: .mp4)
+        let range = try #require(ClipTrim(start: 0.4, end: 1.4, duration: selected.duration))
+        selected.trim = range
+        let destination = root.appending(path: "trimmed.mp4")
+        try await Library.save(selected, as: .mp4, to: destination)
+        #expect(abs(try await AVURLAsset(url: destination).load(.duration).seconds - 1) < 0.07)
     }
 
 }

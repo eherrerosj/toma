@@ -11,7 +11,7 @@ import CoreImage
 nonisolated enum GIFEncoder {
     @concurrent static func encode(_ clip: Clip, policy: GIFPolicy, to url: URL,
                        progress: @Sendable (Double) -> Void) async throws {
-        let asset = AVURLAsset(url: clip.master)
+        let asset = try await ClipTrim.asset(clip.master, trim: clip.trim)
         guard let track = try await asset.loadTracks(withMediaType: .video).first else {
             throw TomaError.exportFailed(underlying: "no video track")
         }
@@ -46,11 +46,11 @@ nonisolated enum GIFEncoder {
             return GIF.Frame(pixels: pixels, width: width, height: height)
         }
 
-        guard clip.duration.isFinite, clip.duration > 0, clip.duration <= ResourceBudget.maximumDuration + 10,
+        guard clip.exportDuration.isFinite, clip.exportDuration > 0, clip.exportDuration <= ResourceBudget.maximumDuration + 10,
               (1...60).contains(policy.framesPerSecond), width > 0, height > 0,
               width <= 1920, height <= 1920 else { throw TomaError.exportFailed(underlying: "invalid GIF dimensions or duration") }
         let fps = Double(policy.framesPerSecond)
-        let ticks = max(1, Int((clip.duration * fps).rounded(.up)))
+        let ticks = max(1, Int((clip.exportDuration * fps).rounded(.up)))
         func centiseconds(_ from: Int, _ to: Int) -> Int {
             Int((Double(to) * 100 / fps).rounded()) - Int((Double(from) * 100 / fps).rounded())
         }

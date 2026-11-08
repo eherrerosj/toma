@@ -55,6 +55,7 @@ Checks report a failure until that repository has a suitable personal release.
 When it ends, a thumbnail appears at the bottom right, like screenshots do:
 
 - **MP4 · HEVC · GIF**: select the format. The thumbnail stays open so you can choose an action.
+- **Trim** (the scissors icon): adjust the start and end, then apply or cancel. All exports use the applied range. Reopen Last Recording restores the full original.
 - **Save** (the download icon): saves the selected format to your chosen folder.
 - **Copy**: puts the selected format on the clipboard, ready to paste into Slack, Mail or WhatsApp.
 - **Drag**: drop the thumbnail into any app or folder in the selected format.

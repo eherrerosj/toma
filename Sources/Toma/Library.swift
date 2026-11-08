@@ -45,9 +45,9 @@ enum Library {
         guard format != .gif, prepared[clip.master] == nil else { return }
         try? storage.createPrivateDirectory(storage.scratch)
         let target = storage.scratch.appending(path: "\(UUID().uuidString).\(format.fileExtension)")
-        prepared[clip.master] = (format, Task.detached(priority: .userInitiated) {
+        prepared[clip.master] = (format, clip.trim, Task.detached(priority: .userInitiated) {
             do {
-                try await Transcoder.run(clip.master, to: target, format: format, progress: { _ in })
+                try await Transcoder.run(clip.master, to: target, format: format, trim: clip.trim, progress: { _ in })
                 return target
             } catch {
                 try? FileManager.default.removeItem(at: target)
@@ -135,15 +135,15 @@ enum Library {
 
     // MARK: private
 
-    private static var prepared: [URL: (Format, Task<URL, any Error>)] = [:]
+    private static var prepared: [URL: (Format, ClipTrim?, Task<URL, any Error>)] = [:]
 
     private static var clipboardFolder: URL { storage.clipboard }
 
     /// A finished file in scratch, encoded as `format`, reusing a prepared encode when it matches.
     private static func encode(_ clip: Clip, as format: Format,
                                progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
-        if let (preparedFormat, task) = prepared[clip.master] {
-            if preparedFormat == format {
+        if let (preparedFormat, preparedTrim, task) = prepared[clip.master] {
+            if preparedFormat == format, preparedTrim == clip.trim {
                 prepared[clip.master] = nil
                 let result = await withTaskCancellationHandler {
                     await task.result
@@ -161,7 +161,7 @@ enum Library {
             case .gif:
                 try await GIFEncoder.encode(clip, policy: Preferences.gifSize.policy, to: target, progress: progress)
             case .mp4, .hevc:
-                try await Transcoder.run(clip.master, to: target, format: format, progress: progress)
+                try await Transcoder.run(clip.master, to: target, format: format, trim: clip.trim, progress: progress)
             }
             return target
         } catch {
@@ -171,7 +171,7 @@ enum Library {
     }
 
     private static func discardPrepared(_ clip: Clip) async {
-        guard let (_, task) = prepared.removeValue(forKey: clip.master) else { return }
+        guard let (_, _, task) = prepared.removeValue(forKey: clip.master) else { return }
         task.cancel()
         if let url = try? await task.value { try? FileManager.default.removeItem(at: url) }
     }

@@ -205,6 +205,8 @@ nonisolated struct Clip: Sendable {
     /// Seconds.
     let duration: Double
     let region: ScreenRegion
+    var trim: ClipTrim? = nil
+    var exportDuration: Double { trim?.duration ?? duration }
 }
 
 nonisolated enum Outcome: Sendable {

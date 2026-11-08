@@ -88,4 +88,35 @@ import Testing
         #expect(Preferences.ThumbnailTimeout.never.delay == nil)
     }
 
+    @Test func editingBlocksDeliveryAndAppliesOneSharedRange() async throws {
+        let entered = OneShot<Bool>()
+        let finish = OneShot<TrimEditor.Decision>()
+        let range = try #require(ClipTrim(start: 0.2, end: 0.8, duration: 1))
+        var written: ClipTrim?
+        let card = ResultCard(try clip(), suggesting: .mp4, editor: { _ in
+            entered.resolve(true)
+            return await finish.value
+        }, write: { clip, _, _ in written = clip.trim })
+        let edit = Task { await card.edit() }
+        _ = await entered.value
+        #expect(!card.commit())
+        card.copy()
+        #expect(card.selection == nil)
+        await #expect(throws: (any Error).self) { try await card.deliver(to: URL(fileURLWithPath: "/unused.mp4")) }
+        finish.resolve(.apply(range))
+        await edit.value
+        #expect(card.clip.trim == range)
+        try await card.deliver(to: URL(fileURLWithPath: "/unused.mp4"))
+        #expect(written == range)
+    }
+
+    @Test func cancellingTrimKeepsPreviousRange() async throws {
+        let card = ResultCard(try clip(), suggesting: .mp4, editor: { _ in .cancel })
+        await card.edit()
+        #expect(card.clip.trim == nil)
+        #expect(card.selection == nil)
+        card.copy()
+        #expect(card.selection == .copy(.mp4))
+    }
+
 }
