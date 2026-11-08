@@ -61,6 +61,8 @@ When it ends, a thumbnail appears at the bottom right, like screenshots do:
 - **Do nothing**: an untouched thumbnail auto-saves after 6 s. Selecting a format pauses that automatic save.
 - **×**: discards the recording.
 
+Choose **Reopen Last Recording** from the menu bar to copy or export it again. Toma keeps one original locally in its private `Recent` folder until the next recording replaces it. Reopened thumbnails stay open until you choose an action. Discarding a new recording removes its recent copy.
+
 If you press the shortcut while the thumbnail is on screen, Toma saves the recording and starts another.
 
 ## Formats

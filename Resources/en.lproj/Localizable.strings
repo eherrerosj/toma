@@ -61,3 +61,6 @@
 "Up to 1920 px, 20 fps" = "Up to 1920 px, 20 fps";
 "Select %@ format" = "Select %@ format";
 "Save" = "Save";
+
+"Reopen Last Recording" = "Reopen Last Recording";
+"Couldn't keep a recent copy. You can still save this recording." = "Couldn't keep a recent copy. You can still save this recording.";

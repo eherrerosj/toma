@@ -1,11 +1,6 @@
 import AppKit
 
-/// The whole product as one state machine with one verb.
-///
-/// `toggle()` is the only input (hotkey and menu-bar click both call it). `phase` is the only
-/// state, owned here and nowhere else; StatusItem renders it, nothing else writes it.
-/// A session is one linear async story — select, record, review, save — so the order of
-/// events is readable top to bottom in `session()` instead of scattered across callbacks.
+/// Owns capture and review sessions so only one can use the menu bar and result card at a time.
 final class Toma {
     enum Phase {
         case idle
@@ -33,6 +28,7 @@ final class Toma {
         self.updater = updater
         statusItem = StatusItem(updater: updater)
         statusItem.onPress = { [unowned self] in toggle() }
+        statusItem.onReopen = { [unowned self] in reopenLast() }
         statusItem.render(phase)
     }
 
@@ -43,14 +39,7 @@ final class Toma {
         case .idle:
             if case .installing = updater.state { return }
             phase = .busy
-            sessionTask = Task {
-                await session()
-                phase = .idle
-                if againAfterSaving {
-                    againAfterSaving = false
-                    toggle()
-                }
-            }
+            runSession { await self.session() }
         case .recording(let recording, _):
             recording.stop()
         case .reviewing(let card):
@@ -60,6 +49,29 @@ final class Toma {
             sessionTask?.cancel()
         case .busy:
             break
+        }
+    }
+
+    private func runSession(_ action: @escaping () async -> Void) {
+        sessionTask = Task {
+            await action()
+            phase = .idle
+            if againAfterSaving {
+                againAfterSaving = false
+                toggle()
+            }
+        }
+    }
+
+    private func reopenLast() {
+        guard case .idle = phase else { return }
+        if case .installing = updater.state { return }
+        phase = .busy
+        runSession {
+            do {
+                let clip = try await RecentRecording(storage: Library.storage).reopen()
+                await self.review(clip, reopened: true)
+            } catch { self.present(error) }
         }
     }
 
@@ -83,9 +95,19 @@ final class Toma {
             alert.messageText = tr(reason)
             alert.runModal()
         }
+        do { try await RecentRecording(storage: Library.storage).remember(clip) }
+        catch {
+            let alert = NSAlert()
+            alert.messageText = tr("Couldn't keep a recent copy. You can still save this recording.")
+            alert.runModal()
+        }
+        await review(clip)
+    }
+
+    private func review(_ clip: Clip, reopened: Bool = false) async {
         let suggested = Library.preferredFormat
         Library.prepare(clip, as: suggested)                     // likely choice encodes while the card is up
-        let card = ResultCard(clip, suggesting: suggested)
+        let card = ResultCard(clip, suggesting: suggested, autoSaveAfter: reopened ? nil : .seconds(6))
         phase = .reviewing(card)
         let choice = await card.choice()
 
@@ -97,7 +119,9 @@ final class Toma {
         }
         do {
             switch choice {
-            case .discard: await Library.discard(clip)
+            case .discard:
+                if !reopened { try? RecentRecording(storage: Library.storage).forget(ifMatching: clip) }
+                await Library.discard(clip)
             case .delivered: break
             case .save(let format): try await Library.save(clip, as: format, progress: progress)
             case .copy(let format):

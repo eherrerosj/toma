@@ -61,3 +61,6 @@
 "Up to 1920 px, 20 fps" = "Hasta 1920 px, 20 fps";
 "Select %@ format" = "Seleccionar formato %@";
 "Save" = "Guardar";
+
+"Reopen Last Recording" = "Volver a abrir la última grabación";
+"Couldn't keep a recent copy. You can still save this recording." = "No se pudo conservar una copia reciente. Puedes guardar esta grabación.";

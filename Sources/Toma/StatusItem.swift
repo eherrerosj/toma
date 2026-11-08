@@ -74,6 +74,8 @@ final class StatusItem: NSObject {
         }
     }
 
+    var onReopen: (() -> Void)?
+
     private func showMenu() {
         guard let button = item.button else { return }
         let menu = NSMenu()
@@ -94,6 +96,10 @@ final class StatusItem: NSObject {
         record.keyEquivalentModifierMask = [.option, .shift, .command]
         if case .installing = updater.state { record.isEnabled = false }
         menu.addItem(record)
+        let reopen = item(tr("Reopen Last Recording"), #selector(reopenLast))
+        reopen.isEnabled = RecentRecording(storage: Library.storage).isAvailable
+        if case .installing = updater.state { reopen.isEnabled = false }
+        menu.addItem(reopen)
         menu.addItem(.separator())
 
         // Choices, each shown with its current value, Apple-style.
@@ -156,6 +162,8 @@ final class StatusItem: NSObject {
         item.isEnabled = action != nil
         return item
     }
+
+    @objc private func reopenLast() { onReopen?() }
 
     @objc private func chooseFolder() { Preferences.chooseFolder() }
     @objc private func resetFolder() { Preferences.folder = nil }

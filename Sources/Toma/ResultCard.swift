@@ -24,9 +24,9 @@ final class ResultCard {
     private var dragging = false
     private var swipe: CGFloat = 0
 
-    private let autoSaveAfter: Duration
+    private let autoSaveAfter: Duration?
 
-    init(_ clip: Clip, suggesting suggested: Format, autoSaveAfter: Duration = .seconds(6),
+    init(_ clip: Clip, suggesting suggested: Format, autoSaveAfter: Duration? = .seconds(6),
          write: @escaping (Clip, Format, URL) async throws -> Void = { clip, format, url in
              try await Library.save(clip, as: format, to: url)
          }) {
@@ -62,7 +62,7 @@ final class ResultCard {
     private func restartTimeout() {
         timeout?.cancel()
         guard !hovering, !dragging, !delivering, !awaitingAction, selection == nil else { return }
-        let delay = autoSaveAfter
+        guard let delay = autoSaveAfter else { return }
         timeout = Task { [weak self] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }

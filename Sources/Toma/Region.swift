@@ -12,7 +12,7 @@ import CoreGraphics
 ///
 /// Stored once in AppKit global coordinates (what the overlay draws in); every other
 /// coordinate system is *derived*, never stored, so they cannot drift apart.
-nonisolated struct ScreenRegion: Sendable, Equatable {
+nonisolated struct ScreenRegion: Sendable, Equatable, Codable {
     let displayID: CGDirectDisplayID
     /// AppKit global space: points, origin bottom-left of the primary display.
     let frame: CGRect
