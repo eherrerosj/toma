@@ -6,6 +6,28 @@ Todos los cambios relevantes se documentan aquí. El formato sigue
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-08
+
+### Changed
+
+- Local builds can pin an explicit Apple signing identity and team in repository-local Git settings.
+- Configured builds fail before compilation if the signer is missing, ambiguous or from the wrong team. They cannot silently fall back to ad hoc signing.
+- Bundle checks validate the Apple signing class, team and app identifier. Releases continue to require Developer ID signing and notarization.
+
+### Added
+
+- Signing configuration and build-preflight regression tests.
+
+## [1.4.0] - 2026-11-08
+
+### Added
+
+- Reopen Last Recording retains one local original for another export.
+- Thumbnail Auto-Save offers 6 seconds, 15 seconds, or Never.
+- Start and end trimming applies to Save, Copy and drag in MP4, HEVC and GIF.
+- Record Window uses the macOS single-window picker.
+- An optional three-second countdown supports Cancel and Escape before capture starts.
+
 ## [1.3.2] - 2026-11-07
 
 ### Fixed

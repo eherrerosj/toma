@@ -4,6 +4,13 @@
 #   ./build.sh dmg   →  ./Toma Personal.app and ./Toma.dmg (drag-to-Applications disk image)
 set -eu
 cd "$(dirname "$0")"
+# Validate the pinned identity before compiling or replacing the previous app bundle.
+SIGNER=$(python3 scripts/signing.py resolve)
+read -r IDENTITY SIGNING_TEAM SIGNING_KIND <<EOF_SIGNER
+$SIGNER
+EOF_SIGNER
+TIMESTAMP=--timestamp=none
+if [ "$SIGNING_KIND" = developer-id ]; then TIMESTAMP=--timestamp; fi
 VERSION=$(cat VERSION)
 BUILD=$(git rev-list --count HEAD 2>/dev/null || echo 1)
 BUILD_COMMIT_SHA=${BUILD_COMMIT_SHA:-$(git rev-parse HEAD)}
@@ -42,14 +49,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict></plist>
 PLIST
 
-# Local builds are ad hoc unless a developer explicitly selects a signing identity.
-IDENTITY=${SIGNING_IDENTITY:--}
-TIMESTAMP=--timestamp=none
-if [ "$IDENTITY" != - ]; then TIMESTAMP=--timestamp; fi
-if [ "${REQUIRE_NOTARIZATION:-0}" = 1 ]; then
-  case "$IDENTITY" in 'Developer ID Application:'*) ;; *) echo 'A Developer ID Application identity is required.' >&2; exit 1 ;; esac
-  [ -n "${SIGNING_TEAM:-}" ] || { echo 'SIGNING_TEAM is required.' >&2; exit 1; }
-fi
 # Hardened runtime blocks the microphone unless the entitlement says otherwise.
 ENTITLEMENTS=$(mktemp)
 cat > "$ENTITLEMENTS" <<ENT
@@ -61,9 +60,7 @@ cat > "$ENTITLEMENTS" <<ENT
 ENT
 codesign --force --options runtime $TIMESTAMP --entitlements "$ENTITLEMENTS" --sign "${IDENTITY:--}" --identifier io.github.eherrerosj.toma "$APP"
 rm -f "$ENTITLEMENTS"
-if [ "${REQUIRE_NOTARIZATION:-0}" = 1 ]; then
-  codesign --verify --deep --strict --all-architectures -R "anchor apple generic and identifier \"io.github.eherrerosj.toma\" and certificate leaf[subject.OU] = \"$SIGNING_TEAM\" and certificate leaf[field.1.2.840.113635.100.6.1.13] exists" "$APP"
-fi
+python3 scripts/signing.py verify "$APP"
 [ "$(git rev-parse HEAD)" = "$BUILD_COMMIT_SHA" ] || { echo 'HEAD changed during the build.' >&2; exit 1; }
 echo "Listo: $APP ($VERSION)"
 
@@ -114,13 +111,13 @@ codesign --force $TIMESTAMP --sign "${IDENTITY:--}" "$DMG"
 # Notarize and staple, so Gatekeeper opens the DMG without «Abrir igualmente». Needs a Developer ID
 # signature and a notarytool keychain profile (create it once: xcrun notarytool store-credentials toma).
 NOTARY_PROFILE=${NOTARY_PROFILE:-toma}
-if [ "$TIMESTAMP" = "--timestamp" ] && xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+if [ "$SIGNING_KIND" = developer-id ] && xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
   xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
   xcrun stapler staple "$DMG"
   xcrun stapler validate "$DMG"
   echo "Notarizado y grapado: $DMG"
 else
   [ "${REQUIRE_NOTARIZATION:-0}" != 1 ] || { echo 'Notarization credentials are unavailable.' >&2; exit 1; }
-  echo "(sin notarizar: falta certificado Developer ID o perfil de notarytool \"$NOTARY_PROFILE\")"
+  echo "Not notarized: this build needs Developer ID signing and a notarytool profile."
 fi
 echo "Listo: $DMG"

@@ -10,7 +10,11 @@ TAG="v$VERSION"
 REPOSITORY=eherrerosj/toma
 GH=./scripts/github.sh
 [ "$($GH api user --jq .login)" = eherrerosj ] || { echo 'Use the eherrerosj account.' >&2; exit 1; }
-[ -n "${SIGNING_IDENTITY:-}" ] && [ -n "${SIGNING_TEAM:-}" ] || { echo 'Set SIGNING_IDENTITY and SIGNING_TEAM.' >&2; exit 1; }
+SIGNER=$(REQUIRE_NOTARIZATION=1 python3 scripts/signing.py resolve)
+read -r SIGNING_IDENTITY SIGNING_TEAM SIGNING_KIND <<EOF_SIGNER
+$SIGNER
+EOF_SIGNER
+export SIGNING_IDENTITY SIGNING_TEAM
 
 [ "$(git branch --show-current)" = main ] || { echo "Run from main."; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "Uncommitted changes."; exit 1; }

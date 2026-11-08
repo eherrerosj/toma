@@ -129,10 +129,37 @@ cd toma
 ./build.sh dmg    # → Toma Personal.app and Toma.dmg
 ```
 
-Local builds use an ad hoc signature. Set `SIGNING_IDENTITY` explicitly to use your own development certificate.
-A stable certificate keeps the Screen Recording grant across rebuilds. Never rely on certificate selection order.
-Personal releases require `SIGNING_IDENTITY`, `SIGNING_TEAM` and a notarytool profile (`NOTARY_PROFILE`, default `toma`).
-The release script verifies the personal GitHub account, pins the built commit and requires notarization.
+Pin an installed Apple certificate once for stable local signing:
+
+```bash
+security find-identity -v -p codesigning
+python3 scripts/signing.py configure --identity "CERTIFICATE_SHA1" --team "TEAM_ID"
+./build.sh
+```
+
+Choose the exact SHA-1 fingerprint from the first command. The team must match the certificate's
+Organizational Unit, not the person identifier in its display name. Configuration stays in this
+checkout's local Git settings. No private key is exported or stored in the repository.
+
+Later builds reuse that identity. An unavailable signer, ambiguous name, wrong team, or unreadable
+configuration stops the build before replacing its previous output. Apple Development certificates
+support local testing. Developer ID Application certificates support notarized distribution.
+Signing checks require the expected Apple certificate class, team and Toma bundle identifier.
+The signer controls macOS's default designated requirement; the app does not weaken that requirement.
+
+Switching from an ad hoc build to the signed build requires granting Screen Recording again once.
+Subsequent builds with mutually compatible designated requirements can retain the grant. Changing
+between Apple Development and Developer ID can require another grant. A local development signature
+does not make the app a notarized public release. See [Apple's signing requirements](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements).
+
+An unconfigured checkout uses ad hoc signing for smoke builds. CI explicitly uses `SIGNING_MODE=adhoc`.
+After configuration, only that deliberate override produces an ad hoc build. Do not install those
+smoke artifacts over the signed app. Use `SIGNING_MODE=stable ./build.sh` to require a configured signer.
+Explicit `SIGNING_IDENTITY` and `SIGNING_TEAM` environment variables can select another validated signer.
+
+Personal releases require a Developer ID Application signer and a notarytool profile
+(`NOTARY_PROFILE`, default `toma`). The release script rejects development and ad hoc signatures,
+verifies the personal GitHub account, pins the built commit and requires notarization.
 No release is published by the build command alone.
 
 Run `swift test` for the media and regression suite. Run `python3 -m unittest discover -s Tests -v` for release-script tests.
