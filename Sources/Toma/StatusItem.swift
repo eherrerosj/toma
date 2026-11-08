@@ -132,6 +132,17 @@ final class StatusItem: NSObject {
         gif.submenu = gifMenu
         menu.addItem(gif)
 
+        let timeout = NSMenuItem(title: tr("Thumbnail Auto-Save"), action: nil, keyEquivalent: "")
+        let timeoutMenu = NSMenu()
+        for choice in Preferences.ThumbnailTimeout.allCases {
+            let option = item(choice.title, #selector(chooseThumbnailTimeout(_:)))
+            option.representedObject = choice.rawValue
+            option.state = Preferences.thumbnailTimeout == choice ? .on : .off
+            timeoutMenu.addItem(option)
+        }
+        timeout.submenu = timeoutMenu
+        menu.addItem(timeout)
+
         let sound = NSMenuItem(title: tr("Sound"), action: nil, keyEquivalent: "")
         let soundMenu = NSMenu()
         for audio in Preferences.Audio.allCases {
@@ -161,6 +172,12 @@ final class StatusItem: NSObject {
         item.target = self
         item.isEnabled = action != nil
         return item
+    }
+
+    @objc private func chooseThumbnailTimeout(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let choice = Preferences.ThumbnailTimeout(rawValue: raw) else { return }
+        Preferences.thumbnailTimeout = choice
     }
 
     @objc private func reopenLast() { onReopen?() }

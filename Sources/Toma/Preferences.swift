@@ -29,6 +29,31 @@ enum Preferences {
         }
     }
 
+    enum ThumbnailTimeout: String, CaseIterable {
+        case sixSeconds, fifteenSeconds, never
+
+        var title: String {
+            switch self {
+            case .sixSeconds: tr("After 6 Seconds")
+            case .fifteenSeconds: tr("After 15 Seconds")
+            case .never: tr("Never")
+            }
+        }
+
+        var delay: Duration? {
+            switch self {
+            case .sixSeconds: .seconds(6)
+            case .fifteenSeconds: .seconds(15)
+            case .never: nil
+            }
+        }
+    }
+
+    static var thumbnailTimeout: ThumbnailTimeout {
+        get { ThumbnailTimeout(rawValue: UserDefaults.standard.string(forKey: "thumbnailTimeout") ?? "") ?? .sixSeconds }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "thumbnailTimeout") }
+    }
+
     enum Audio: String, CaseIterable {
         case none, system, systemAndMicrophone
 

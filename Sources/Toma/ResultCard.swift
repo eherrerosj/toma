@@ -26,7 +26,7 @@ final class ResultCard {
 
     private let autoSaveAfter: Duration?
 
-    init(_ clip: Clip, suggesting suggested: Format, autoSaveAfter: Duration? = .seconds(6),
+    init(_ clip: Clip, suggesting suggested: Format, autoSaveAfter: Duration? = Preferences.thumbnailTimeout.delay,
          write: @escaping (Clip, Format, URL) async throws -> Void = { clip, format, url in
              try await Library.save(clip, as: format, to: url)
          }) {
@@ -59,7 +59,7 @@ final class ResultCard {
         decided.resolve(choice)
     }
 
-    private func restartTimeout() {
+    func restartTimeout() {
         timeout?.cancel()
         guard !hovering, !dragging, !delivering, !awaitingAction, selection == nil else { return }
         guard let delay = autoSaveAfter else { return }

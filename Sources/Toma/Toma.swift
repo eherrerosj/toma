@@ -107,7 +107,7 @@ final class Toma {
     private func review(_ clip: Clip, reopened: Bool = false) async {
         let suggested = Library.preferredFormat
         Library.prepare(clip, as: suggested)                     // likely choice encodes while the card is up
-        let card = ResultCard(clip, suggesting: suggested, autoSaveAfter: reopened ? nil : .seconds(6))
+        let card = ResultCard(clip, suggesting: suggested, autoSaveAfter: reopened ? nil : Preferences.thumbnailTimeout.delay)
         phase = .reviewing(card)
         let choice = await card.choice()
 

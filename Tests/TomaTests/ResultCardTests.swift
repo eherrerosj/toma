@@ -59,11 +59,30 @@ import Testing
     @Test func choosingAFormatHoldsTheCardPastItsAutoSaveDelay() async throws {
         let card = ResultCard(try clip(), suggesting: .mp4, autoSaveAfter: .milliseconds(10))
         card.picked(.gif)
+        card.restartTimeout()
         try await Task.sleep(for: .milliseconds(40))
         #expect(card.selection == nil)
         #expect(card.selectedFormat == .gif)
         card.copy()
         #expect(card.selection == .copy(.gif))
+    }
+
+    @Test func untouchedCardSavesButManualCardWaits() async throws {
+        let timed = ResultCard(try clip(), suggesting: .mp4, autoSaveAfter: .milliseconds(10))
+        let manual = ResultCard(try clip(), suggesting: .gif, autoSaveAfter: nil)
+        timed.restartTimeout()
+        manual.restartTimeout()
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(timed.selection == .save(.mp4))
+        #expect(manual.selection == nil)
+        #expect(manual.commit())
+        #expect(manual.selection == .save(.gif))
+    }
+
+    @Test func timeoutPreferencesHaveBoundedDelays() {
+        #expect(Preferences.ThumbnailTimeout.sixSeconds.delay == .seconds(6))
+        #expect(Preferences.ThumbnailTimeout.fifteenSeconds.delay == .seconds(15))
+        #expect(Preferences.ThumbnailTimeout.never.delay == nil)
     }
 
 }

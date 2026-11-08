@@ -64,3 +64,8 @@
 
 "Reopen Last Recording" = "Volver a abrir la última grabación";
 "Couldn't keep a recent copy. You can still save this recording." = "No se pudo conservar una copia reciente. Puedes guardar esta grabación.";
+
+"Thumbnail Auto-Save" = "Guardado automático de la miniatura";
+"After 6 Seconds" = "Después de 6 segundos";
+"After 15 Seconds" = "Después de 15 segundos";
+"Never" = "Nunca";

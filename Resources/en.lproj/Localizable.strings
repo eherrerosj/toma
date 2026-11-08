@@ -64,3 +64,8 @@
 
 "Reopen Last Recording" = "Reopen Last Recording";
 "Couldn't keep a recent copy. You can still save this recording." = "Couldn't keep a recent copy. You can still save this recording.";
+
+"Thumbnail Auto-Save" = "Thumbnail Auto-Save";
+"After 6 Seconds" = "After 6 Seconds";
+"After 15 Seconds" = "After 15 Seconds";
+"Never" = "Never";

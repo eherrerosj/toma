@@ -58,7 +58,7 @@ When it ends, a thumbnail appears at the bottom right, like screenshots do:
 - **Save** (the download icon): saves the selected format to your chosen folder.
 - **Copy**: puts the selected format on the clipboard, ready to paste into Slack, Mail or WhatsApp.
 - **Drag**: drop the thumbnail into any app or folder in the selected format.
-- **Do nothing**: an untouched thumbnail auto-saves after 6 s. Selecting a format pauses that automatic save.
+- **Do nothing**: an untouched thumbnail auto-saves after 6 s by default. Choose **Thumbnail Auto-Save** in the menu for 6 s, 15 s, or Never. Selecting a format pauses that automatic save.
 - **×**: discards the recording.
 
 Choose **Reopen Last Recording** from the menu bar to copy or export it again. Toma keeps one original locally in its private `Recent` folder until the next recording replaces it. Reopened thumbnails stay open until you choose an action. Discarding a new recording removes its recent copy.
