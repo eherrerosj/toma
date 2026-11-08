@@ -64,6 +64,8 @@ When it ends, a thumbnail appears at the bottom right, like screenshots do:
 
 Choose **Reopen Last Recording** from the menu bar to copy or export it again. Toma keeps one original locally in its private `Recent` folder until the next recording replaces it. Reopened thumbnails stay open until you choose an action. Discarding a new recording removes its recent copy.
 
+Choose **Start Recording → After 3 Seconds** for a countdown after selecting a region or window. Cancel or Escape stops the countdown before recording starts. The default is Immediately.
+
 Choose **Record Window…** from the menu bar to select one window with the macOS picker. The recording follows that window when it moves. The existing shortcut still records a region.
 
 If you press the shortcut while the thumbnail is on screen, Toma saves the recording and starts another.

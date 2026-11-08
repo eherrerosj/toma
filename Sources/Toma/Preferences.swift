@@ -54,6 +54,17 @@ enum Preferences {
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "thumbnailTimeout") }
     }
 
+    enum RecordingDelay: String, CaseIterable {
+        case immediately, threeSeconds
+        var title: String { self == .immediately ? tr("Immediately") : tr("After 3 Seconds") }
+        var seconds: Int { self == .immediately ? 0 : 3 }
+    }
+
+    static var recordingDelay: RecordingDelay {
+        get { RecordingDelay(rawValue: UserDefaults.standard.string(forKey: "recordingDelay") ?? "") ?? .immediately }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "recordingDelay") }
+    }
+
     enum Audio: String, CaseIterable {
         case none, system, systemAndMicrophone
 

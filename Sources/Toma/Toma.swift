@@ -88,10 +88,13 @@ final class Toma {
         var frame: Overlay.FrameHandle?
         do {
             if window {
-                guard let filter = try await WindowPicker.select() else { return }
+                guard let filter = try await WindowPicker.select(),
+                      await RecordingCountdown.wait(seconds: Preferences.recordingDelay.seconds) else { return }
                 recording = try await Recording.start(window: filter)
             } else {
-                guard Recording.ensureAccess(), let region = await Overlay.select() else { return }
+                guard Recording.ensureAccess(), let region = await Overlay.select(),
+                      await RecordingCountdown.wait(seconds: Preferences.recordingDelay.seconds,
+                                                    on: NSScreen.with(displayID: region.displayID)) else { return }
                 recording = try await Recording.start(region)
                 frame = Overlay.frame(around: region)
             }
@@ -102,6 +105,7 @@ final class Toma {
         let clip: Clip
         do { clip = try await recording.clip } catch { frame?.close(); return present(error) }
         frame?.close()
+        if window { WindowPicker.deactivate() }
 
         if let reason = recording.limitReason {
             let alert = NSAlert()

@@ -3,7 +3,7 @@ import CoreGraphics
 
 /// Capture geometry. Region selection uses display coordinates; independent windows use content-local coordinates.
 ///
-/// Invariants (all established by the only initializer, so every value is capturable):
+/// Region-selection invariants (established by the initializer):
 /// - lies entirely inside one display (`displayID`); a drag that crosses screens is clamped
 ///   to the display where it began, because one SCStream captures one display;
 /// - snapped to that display's pixel grid, and its pixel size is even in both axes

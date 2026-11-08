@@ -1,16 +1,7 @@
 import AppKit
 import ServiceManagement
 
-/// The menu-bar presence. Pure rendering of `Toma.Phase` plus forwarding clicks; holds no state
-/// of its own beyond the timer that redraws elapsed time.
-///
-/// - idle: a dashed rectangle. Click → menu: "Record Region ⌥⇧⌘4", then the three choices Toma
-///   remembers (folder, GIF size, sound), "Open at Login", "Check for Updates…", "Quit Toma".
-///   An available update adds one item on top.
-/// - recording: a stop glyph + monospaced elapsed time, "■ 0:42". Click → stop (no menu:
-///   when recording there is exactly one thing to do).
-/// - saving: a ring that fills as the file is written; a checkmark flashes after a copy.
-/// - busy / reviewing: the idle icon, dimmed.
+/// Renders session state and forwards menu actions to Toma.
 final class StatusItem: NSObject {
     /// Set once by Toma. Called for "Record Region" and for any click while recording.
     var onPress: () -> Void = {}
@@ -77,7 +68,7 @@ final class StatusItem: NSObject {
 
     var onReopen: (() -> Void)?
 
-    private func showMenu() {
+    func showMenu() {
         guard let button = item.button else { return }
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -106,57 +97,7 @@ final class StatusItem: NSObject {
         menu.addItem(reopen)
         menu.addItem(.separator())
 
-        // Choices, each shown with its current value, Apple-style.
-        let folder = NSMenuItem(title: tr("Save To"), action: nil, keyEquivalent: "")
-        let folderMenu = NSMenu()
-        let current = item(FileManager.default.displayName(atPath: Library.destination.path), nil)
-        current.image = NSWorkspace.shared.icon(forFile: Library.destination.path)
-        current.image?.size = CGSize(width: 16, height: 16)
-        current.state = .on
-        folderMenu.addItem(current)
-        folderMenu.addItem(.separator())
-        folderMenu.addItem(item(tr("Other Folder…"), #selector(chooseFolder)))
-        if Preferences.folder != nil {
-            folderMenu.addItem(item(tr("Use Screenshots Folder"), #selector(resetFolder)))
-        }
-        folderMenu.addItem(item(tr("Show in Finder"), #selector(revealFolder)))
-        folder.submenu = folderMenu
-        menu.addItem(folder)
-
-        let gif = NSMenuItem(title: tr("GIF Size"), action: nil, keyEquivalent: "")
-        let gifMenu = NSMenu()
-        for size in Preferences.GIFSize.allCases {
-            let option = item(size.title, #selector(chooseGIFSize(_:)))
-            option.representedObject = size.rawValue
-            option.state = Preferences.gifSize == size ? .on : .off
-            option.toolTip = size.detail
-            option.subtitle = size.detail
-            gifMenu.addItem(option)
-        }
-        gif.submenu = gifMenu
-        menu.addItem(gif)
-
-        let timeout = NSMenuItem(title: tr("Thumbnail Auto-Save"), action: nil, keyEquivalent: "")
-        let timeoutMenu = NSMenu()
-        for choice in Preferences.ThumbnailTimeout.allCases {
-            let option = item(choice.title, #selector(chooseThumbnailTimeout(_:)))
-            option.representedObject = choice.rawValue
-            option.state = Preferences.thumbnailTimeout == choice ? .on : .off
-            timeoutMenu.addItem(option)
-        }
-        timeout.submenu = timeoutMenu
-        menu.addItem(timeout)
-
-        let sound = NSMenuItem(title: tr("Sound"), action: nil, keyEquivalent: "")
-        let soundMenu = NSMenu()
-        for audio in Preferences.Audio.allCases {
-            let option = item(audio.title, #selector(chooseAudio(_:)))
-            option.representedObject = audio.rawValue
-            option.state = Preferences.audio == audio ? .on : .off
-            soundMenu.addItem(option)
-        }
-        sound.submenu = soundMenu
-        menu.addItem(sound)
+        addPreferences(to: menu)
 
         menu.addItem(.separator())
         let login = item(tr("Open at Login"), #selector(toggleLogin))
@@ -171,37 +112,11 @@ final class StatusItem: NSObject {
         menu.popUp(positioning: nil, at: CGPoint(x: 0, y: button.bounds.height + 5), in: button)
     }
 
-    private func item(_ title: String, _ action: Selector?, key: String = "") -> NSMenuItem {
+    func item(_ title: String, _ action: Selector?, key: String = "") -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = self
         item.isEnabled = action != nil
         return item
-    }
-
-    @objc private func chooseThumbnailTimeout(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String,
-              let choice = Preferences.ThumbnailTimeout(rawValue: raw) else { return }
-        Preferences.thumbnailTimeout = choice
-    }
-
-    @objc private func recordWindow() { onRecordWindow() }
-
-    @objc private func reopenLast() { onReopen?() }
-
-    @objc private func chooseFolder() { Preferences.chooseFolder() }
-    @objc private func resetFolder() { Preferences.folder = nil }
-    @objc private func revealFolder() { NSWorkspace.shared.open(Library.destination) }
-
-    @objc private func chooseGIFSize(_ sender: NSMenuItem) {
-        if let raw = sender.representedObject as? String, let size = Preferences.GIFSize(rawValue: raw) {
-            Preferences.gifSize = size
-        }
-    }
-
-    @objc private func chooseAudio(_ sender: NSMenuItem) {
-        if let raw = sender.representedObject as? String, let audio = Preferences.Audio(rawValue: raw) {
-            Preferences.choose(audio)
-        }
     }
 
     /// A brief checkmark after copying to the clipboard: the only confirmation, and it's enough.

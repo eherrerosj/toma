@@ -34,7 +34,6 @@ final class TextButton: NSButton {
 final class ThumbView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate {
     private weak var owner: ResultCard?
     private var downAt: CGPoint?
-    private var delivered = false
 
     init(frame: CGRect, owner: ResultCard?) {
         self.owner = owner
