@@ -72,7 +72,10 @@ import Testing
         let manual = ResultCard(try clip(), suggesting: .gif, autoSaveAfter: nil)
         timed.restartTimeout()
         manual.restartTimeout()
-        try await Task.sleep(for: .milliseconds(50))
+        let deadline = ContinuousClock.now + .seconds(2)
+        while timed.selection == nil, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
         #expect(timed.selection == .save(.mp4))
         #expect(manual.selection == nil)
         #expect(manual.commit())
